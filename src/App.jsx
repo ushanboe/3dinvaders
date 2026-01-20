@@ -1,8 +1,35 @@
+import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useGLTF } from '@react-three/drei';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
+
+// Debug logger
+const DEBUG = true;
+const log = (...args) => DEBUG && console.log('[DEBUG]', ...args);
+
+// Error boundary for catching render errors
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || null;
+    }
+    return this.props.children;
+  }
+}
 
 // Sound effects using Web Audio API
 const useSound = () => {
@@ -65,23 +92,66 @@ const useSound = () => {
   return playSound;
 };
 
+// Fallback cube enemy
+function CubeEnemy({ position, color }) {
+  return (
+    <mesh position={position}>
+      <boxGeometry args={[0.8, 0.8, 0.8]} />
+      <meshStandardMaterial color={color} />
+    </mesh>
+  );
+}
+
 // Single animated enemy model - cloned properly
-function EnemyModel({ position }) {
+function EnemyModel({ position, id }) {
   const group = useRef();
-  const { scene, animations } = useGLTF('/3dinvaders/enemy.glb');
   const mixer = useRef();
+  const [error, setError] = useState(false);
+  
+  // Load the model
+  const { scene, animations } = useGLTF('/3dinvaders/enemy.glb');
+  
+  useEffect(() => {
+    log(`[EnemyModel ${id}] Model loaded:`, {
+      scene: scene ? 'exists' : 'missing',
+      animations: animations?.length || 0
+    });
+  }, [scene, animations, id]);
   
   // Clone the scene using SkeletonUtils for proper skinned mesh cloning
   const clone = useMemo(() => {
-    return SkeletonUtils.clone(scene);
-  }, [scene]);
+    try {
+      log(`[EnemyModel ${id}] Cloning scene...`);
+      const cloned = SkeletonUtils.clone(scene);
+      log(`[EnemyModel ${id}] Clone successful:`, {
+        children: cloned.children?.length,
+        type: cloned.type
+      });
+      return cloned;
+    } catch (err) {
+      console.error(`[EnemyModel ${id}] Clone failed:`, err);
+      setError(true);
+      return null;
+    }
+  }, [scene, id]);
   
   // Setup animation
   useEffect(() => {
-    if (clone && animations.length > 0) {
-      mixer.current = new THREE.AnimationMixer(clone);
-      const action = mixer.current.clipAction(animations[0]);
-      action.play();
+    if (!clone) {
+      log(`[EnemyModel ${id}] No clone available for animation`);
+      return;
+    }
+    
+    if (animations && animations.length > 0) {
+      log(`[EnemyModel ${id}] Setting up animation mixer...`);
+      try {
+        mixer.current = new THREE.AnimationMixer(clone);
+        const action = mixer.current.clipAction(animations[0]);
+        action.play();
+        log(`[EnemyModel ${id}] Animation started:`, animations[0].name);
+      } catch (err) {
+        console.error(`[EnemyModel ${id}] Animation setup failed:`, err);
+      }
       
       return () => {
         if (mixer.current) {
@@ -89,8 +159,10 @@ function EnemyModel({ position }) {
           mixer.current.uncacheRoot(clone);
         }
       };
+    } else {
+      log(`[EnemyModel ${id}] No animations found`);
     }
-  }, [clone, animations]);
+  }, [clone, animations, id]);
   
   // Update animation
   useFrame((state, delta) => {
@@ -99,20 +171,15 @@ function EnemyModel({ position }) {
     }
   });
   
+  // If error or clone failed, show fallback
+  if (error || !clone) {
+    return <CubeEnemy position={position} color="#ff00ff" />;
+  }
+  
   return (
     <group ref={group} position={position}>
       <primitive object={clone} scale={0.02} rotation={[0, Math.PI, 0]} />
     </group>
-  );
-}
-
-// Fallback cube enemy
-function CubeEnemy({ position, color }) {
-  return (
-    <mesh position={position}>
-      <boxGeometry args={[0.8, 0.8, 0.8]} />
-      <meshStandardMaterial color={color} />
-    </mesh>
   );
 }
 
@@ -160,14 +227,20 @@ function Road() {
 function Enemies({ enemies }) {
   const rowColors = ['#ff0066', '#ff6600', '#ffff00', '#00ff66', '#0066ff'];
   
+  log('[Enemies] Rendering', enemies.length, 'enemies');
+  
   return (
     <>
       {enemies.map(enemy => (
-        <Suspense key={enemy.id} fallback={
+        <ErrorBoundary key={enemy.id} fallback={
           <CubeEnemy position={[enemy.x, enemy.y, enemy.z]} color={rowColors[enemy.row]} />
         }>
-          <EnemyModel position={[enemy.x, enemy.y, enemy.z]} />
-        </Suspense>
+          <Suspense fallback={
+            <CubeEnemy position={[enemy.x, enemy.y, enemy.z]} color={rowColors[enemy.row]} />
+          }>
+            <EnemyModel position={[enemy.x, enemy.y, enemy.z]} id={enemy.id} />
+          </Suspense>
+        </ErrorBoundary>
       ))}
     </>
   );
@@ -184,6 +257,7 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
 
   // Initialize enemies
   useEffect(() => {
+    log('[Game] Initializing enemies...');
     const initialEnemies = [];
     const rows = 5;
     const cols = 12;
@@ -199,6 +273,7 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
         });
       }
     }
+    log('[Game] Created', initialEnemies.length, 'enemies');
     setEnemies(initialEnemies);
   }, []);
 
@@ -401,6 +476,19 @@ export default function App() {
     window.location.reload();
   };
 
+  // Log on mount
+  useEffect(() => {
+    log('[App] Component mounted');
+    log('[App] Checking model URL...');
+    fetch('/3dinvaders/enemy.glb', { method: 'HEAD' })
+      .then(res => {
+        log('[App] Model fetch response:', res.status, res.ok ? 'OK' : 'FAILED');
+      })
+      .catch(err => {
+        console.error('[App] Model fetch error:', err);
+      });
+  }, []);
+
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#000', touchAction: 'none' }}>
       {/* HUD */}
@@ -417,6 +505,23 @@ export default function App() {
         <div>SCORE: {score}</div>
         <div>HIGH: {highScore}</div>
         <div>LIVES: {'❤️'.repeat(lives)}</div>
+      </div>
+
+      {/* Debug info */}
+      <div style={{
+        position: 'absolute',
+        top: 10,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        color: '#ff0',
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        zIndex: 100,
+        background: 'rgba(0,0,0,0.7)',
+        padding: '5px 10px',
+        borderRadius: '5px'
+      }}>
+        DEBUG MODE - Check Console (F12)
       </div>
 
       {/* Pause button */}
@@ -554,4 +659,5 @@ export default function App() {
 }
 
 // Preload the model
+log('[Preload] Preloading enemy.glb...');
 useGLTF.preload('/3dinvaders/enemy.glb');
