@@ -657,7 +657,7 @@ function Starfield() {
 
 function Game({ gameState, gameActions }) {
   const { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator } = gameState;
-  const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator } = gameActions;
+  const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator, setShotsFired, setShotsHit, setDiveKillCount, setCurrentDiveIds } = gameActions;
   
   const [enemies, setEnemies] = useState([]);
   const [bullets, setBullets] = useState([]);
@@ -721,6 +721,7 @@ function Game({ gameState, gameActions }) {
     levelCompleteChecked.current = false;
     setMysterySpawned(false);
     setMystery(null);
+            setShotsHit(prev => prev + 1);
     setShowMysteryIndicator(false);
     setDivingEnemies([]);
     lastDiveTime.current = 0;
@@ -1188,6 +1189,7 @@ function Game({ gameState, gameActions }) {
             addExplosion(mystery.x, mystery.y, 0, '#ff00ff');
             playSound('mysteryHit');
             setMystery(null);
+            setShotsHit(prev => prev + 1);
             setScore(s => {
               const newScore = s + 1000;
               if (newScore > highScore) {
@@ -1242,6 +1244,7 @@ function Game({ gameState, gameActions }) {
           }
           return newScore;
         });
+        setShotsHit(prev => prev + hitEnemyIds.size);
       } else if (hitBulletIds.size > 0) {
         setBullets(prev => prev.filter(b => !hitBulletIds.has(b.id)));
       }
