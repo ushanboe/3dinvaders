@@ -194,7 +194,6 @@ function Player({ position, isHit }) {
   const groupRef = useRef();
   const glowRef = useRef();
   
-  // Animate glow
   useFrame((state) => {
     if (glowRef.current) {
       glowRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 3) * 0.05);
@@ -207,7 +206,6 @@ function Player({ position, isHit }) {
   
   return (
     <group ref={groupRef} position={position}>
-      {/* Main body - large shiny bubble */}
       <mesh position={[0, 0, 0]}>
         <sphereGeometry args={[0.9, 32, 32]} />
         <meshStandardMaterial 
@@ -216,11 +214,9 @@ function Player({ position, isHit }) {
           roughness={0.05}
           emissive={glowColor}
           emissiveIntensity={isHit ? 0.8 : 0.4}
-          envMapIntensity={1.5}
         />
       </mesh>
       
-      {/* Side bubbles */}
       <mesh position={[-0.8, -0.1, 0]}>
         <sphereGeometry args={[0.5, 24, 24]} />
         <meshStandardMaterial 
@@ -242,7 +238,6 @@ function Player({ position, isHit }) {
         />
       </mesh>
       
-      {/* Cannon barrel - shiny cylinder with bubble tip */}
       <mesh position={[0, 0.7, 0]}>
         <cylinderGeometry args={[0.2, 0.25, 0.8, 16]} />
         <meshStandardMaterial 
@@ -254,7 +249,6 @@ function Player({ position, isHit }) {
         />
       </mesh>
       
-      {/* Cannon tip bubble */}
       <mesh position={[0, 1.2, 0]}>
         <sphereGeometry args={[0.25, 16, 16]} />
         <meshStandardMaterial 
@@ -266,7 +260,6 @@ function Player({ position, isHit }) {
         />
       </mesh>
       
-      {/* Glow ring */}
       <mesh ref={glowRef} position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[1.1, 0.08, 8, 32]} />
         <meshStandardMaterial 
@@ -280,7 +273,6 @@ function Player({ position, isHit }) {
         />
       </mesh>
       
-      {/* Small decorative bubbles */}
       <mesh position={[-0.4, 0.4, 0.3]}>
         <sphereGeometry args={[0.15, 12, 12]} />
         <meshStandardMaterial 
@@ -329,7 +321,6 @@ function Bullet({ position, isEnemy }) {
           emissiveIntensity={1.5}
         />
       </mesh>
-      {/* Trail effect */}
       <mesh position={[0, isEnemy ? 0.3 : -0.3, 0]}>
         <sphereGeometry args={[0.12, 12, 12]} />
         <meshStandardMaterial 
@@ -351,7 +342,6 @@ function Barrier({ barrier }) {
   const blocks = [];
   const bubbleSize = 0.45;
   
-  // Health colors - shiny gradient
   const getColors = (health) => {
     if (health === 3) return { main: '#00ff88', glow: '#00ffaa', emissive: 0.4 };
     if (health === 2) return { main: '#ffdd00', glow: '#ffff44', emissive: 0.5 };
@@ -379,7 +369,7 @@ function Barrier({ barrier }) {
   return <>{blocks}</>;
 }
 
-// Enemies container with sprites
+// Enemies container
 function Enemies({ enemies }) {
   const rowColors = ['#ff0066', '#ff6600', '#ffff00', '#00ff66', '#0066ff'];
   
@@ -396,7 +386,7 @@ function Enemies({ enemies }) {
   );
 }
 
-// Create initial barrier blocks - bubble pattern
+// Create initial barrier blocks
 function createBarrierBlocks() {
   const blocks = [];
   const pattern = [
@@ -422,7 +412,7 @@ function createBarrierBlocks() {
 
 // Main game component
 function Game({ gameState, gameActions }) {
-  const { playerX, score, lives, gameOver, gameWon, paused, highScore } = gameState;
+  const { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted } = gameState;
   const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore } = gameActions;
   
   const [enemies, setEnemies] = useState([]);
@@ -432,7 +422,6 @@ function Game({ gameState, gameActions }) {
   const [explosions, setExplosions] = useState([]);
   const [playerHit, setPlayerHit] = useState(false);
   
-  // Wave movement state
   const [moveDirection, setMoveDirection] = useState(1);
   const [currentMovingRow, setCurrentMovingRow] = useState(4);
   const [pendingDrop, setPendingDrop] = useState(false);
@@ -464,12 +453,12 @@ function Game({ gameState, gameActions }) {
   useEffect(() => {
     enemiesRef.current = enemies;
     
-    if (enemies.length === 0 && initialEnemyCount.current > 0 && !victoryChecked.current && !gameOver && !gameWon) {
+    if (enemies.length === 0 && initialEnemyCount.current > 0 && !victoryChecked.current && !gameOver && !gameWon && gameStarted) {
       victoryChecked.current = true;
       setGameWon(true);
       playSound('victory');
     }
-  }, [enemies, gameOver, gameWon, setGameWon, playSound]);
+  }, [enemies, gameOver, gameWon, gameStarted, setGameWon, playSound]);
   
   useEffect(() => {
     bulletsRef.current = bullets;
@@ -517,6 +506,7 @@ function Game({ gameState, gameActions }) {
   }, []);
 
   const shoot = useCallback(() => {
+    if (!gameStarted) return;
     const now = Date.now();
     if (now - lastShotTime.current < 350) return;
     lastShotTime.current = now;
@@ -528,7 +518,7 @@ function Game({ gameState, gameActions }) {
       z: 0
     }]);
     playSound('shoot');
-  }, [playSound]);
+  }, [playSound, gameStarted]);
 
   useEffect(() => {
     window.gameShoot = shoot;
@@ -536,7 +526,7 @@ function Game({ gameState, gameActions }) {
   }, [shoot]);
 
   useEffect(() => {
-    if (gameOver || gameWon || paused) return;
+    if (gameOver || gameWon || paused || !gameStarted) return;
 
     const gameLoop = setInterval(() => {
       const currentEnemies = enemiesRef.current;
@@ -803,11 +793,11 @@ function Game({ gameState, gameActions }) {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameOver, gameWon, paused, playSound, highScore, moveDirection, currentMovingRow, pendingDrop, setGameOver, setScore, setLives, setHighScore, addExplosion]);
+  }, [gameOver, gameWon, paused, gameStarted, playSound, highScore, moveDirection, currentMovingRow, pendingDrop, setGameOver, setScore, setLives, setHighScore, addExplosion]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (gameOver || gameWon) return;
+      if (gameOver || gameWon || !gameStarted) return;
       
       switch(e.key) {
         case 'ArrowLeft':
@@ -827,7 +817,7 @@ function Game({ gameState, gameActions }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameOver, gameWon, setPlayerX, shoot]);
+  }, [gameOver, gameWon, gameStarted, setPlayerX, shoot]);
 
   return (
     <>
@@ -872,54 +862,140 @@ export default function App() {
   const [gameOver, setGameOver] = useState(false);
   const [gameWon, setGameWon] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
   const [highScore, setHighScore] = useState(() => {
     return parseInt(localStorage.getItem('highScore') || '0');
   });
 
   const restart = () => window.location.reload();
+  
+  const startGame = () => {
+    setGameStarted(true);
+  };
 
-  const gameState = { playerX, score, lives, gameOver, gameWon, paused, highScore };
+  const gameState = { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted };
   const gameActions = { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore };
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: 'linear-gradient(to bottom, #000011, #000033)', touchAction: 'none' }}>
-      {/* HUD */}
-      <div style={{
-        position: 'absolute',
-        top: 10,
-        left: 10,
-        color: '#0ff',
-        fontFamily: 'monospace',
-        fontSize: '18px',
-        zIndex: 100,
-        textShadow: '0 0 10px #0ff, 0 0 20px #0ff'
-      }}>
-        <div>SCORE: {score}</div>
-        <div>HIGH: {highScore}</div>
-        <div>LIVES: {'💎'.repeat(lives)}</div>
-      </div>
-
-      {/* Pause button */}
-      <button
-        onClick={() => setPaused(p => !p)}
-        style={{
+      
+      {/* Start Screen */}
+      {!gameStarted && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0,0,20,0.95)',
+          zIndex: 300
+        }}>
+          <h1 style={{ 
+            color: '#0ff', 
+            fontFamily: 'monospace', 
+            fontSize: '42px',
+            textShadow: '0 0 20px #0ff, 0 0 40px #0ff',
+            textAlign: 'center',
+            marginBottom: '10px'
+          }}>👾 SPACE INVADERS 👾</h1>
+          <p style={{ 
+            color: '#ff0', 
+            fontFamily: 'monospace', 
+            fontSize: '18px',
+            textAlign: 'center',
+            marginBottom: '30px'
+          }}>3D EDITION</p>
+          
+          <div style={{ color: '#aaa', fontFamily: 'monospace', fontSize: '14px', textAlign: 'center', marginBottom: '30px' }}>
+            <p>🎮 PC: Arrow keys / WASD to move, SPACE to shoot</p>
+            <p>📱 Mobile: Use on-screen buttons</p>
+          </div>
+          
+          {highScore > 0 && (
+            <p style={{ color: '#f0f', fontFamily: 'monospace', fontSize: '16px', marginBottom: '20px' }}>
+              🏆 High Score: {highScore}
+            </p>
+          )}
+          
+          <button
+            onClick={startGame}
+            style={{
+              padding: '20px 50px',
+              fontSize: '24px',
+              fontFamily: 'monospace',
+              background: 'linear-gradient(to bottom, #00ffff, #0088ff)',
+              border: 'none',
+              color: '#000',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              borderRadius: '15px',
+              boxShadow: '0 0 30px #0ff',
+              animation: 'pulse 1.5s infinite'
+            }}
+          >▶ START GAME</button>
+        </div>
+      )}
+      
+      {/* HUD - only show when game started */}
+      {gameStarted && (
+        <div style={{
           position: 'absolute',
           top: 10,
-          right: 10,
-          background: 'rgba(0,255,255,0.2)',
-          border: '2px solid #0ff',
+          left: 10,
           color: '#0ff',
-          padding: '10px 15px',
           fontFamily: 'monospace',
-          fontSize: '16px',
-          cursor: 'pointer',
+          fontSize: '18px',
           zIndex: 100,
-          borderRadius: '10px',
-          boxShadow: '0 0 10px #0ff'
-        }}
-      >
-        {paused ? '▶️' : '⏸️'}
-      </button>
+          textShadow: '0 0 10px #0ff, 0 0 20px #0ff'
+        }}>
+          <div>SCORE: {score}</div>
+          <div>HIGH: {highScore}</div>
+          <div>LIVES: {'💎'.repeat(lives)}</div>
+        </div>
+      )}
+
+      {/* Pause button - only show when game started */}
+      {gameStarted && !gameOver && !gameWon && (
+        <button
+          onClick={() => setPaused(p => !p)}
+          style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            background: 'rgba(0,255,255,0.2)',
+            border: '2px solid #0ff',
+            color: '#0ff',
+            padding: '10px 15px',
+            fontFamily: 'monospace',
+            fontSize: '16px',
+            cursor: 'pointer',
+            zIndex: 100,
+            borderRadius: '10px',
+            boxShadow: '0 0 10px #0ff'
+          }}
+        >
+          {paused ? '▶️' : '⏸️'}
+        </button>
+      )}
+      
+      {/* Paused overlay */}
+      {paused && gameStarted && !gameOver && !gameWon && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: '#0ff',
+          fontFamily: 'monospace',
+          fontSize: '36px',
+          textShadow: '0 0 20px #0ff',
+          zIndex: 150
+        }}>⏸️ PAUSED</div>
+      )}
 
       {/* Victory overlay */}
       {gameWon && (
@@ -1008,68 +1084,70 @@ export default function App() {
         </div>
       )}
 
-      {/* Touch controls */}
-      <div style={{
-        position: 'absolute',
-        bottom: 20,
-        left: 0,
-        right: 0,
-        display: 'flex',
-        justifyContent: 'space-between',
-        padding: '0 20px',
-        zIndex: 100
-      }}>
-        <div style={{ display: 'flex', gap: '10px' }}>
+      {/* Touch controls - only show when game started and playing */}
+      {gameStarted && !gameOver && !gameWon && (
+        <div style={{
+          position: 'absolute',
+          bottom: 20,
+          left: 0,
+          right: 0,
+          display: 'flex',
+          justifyContent: 'space-between',
+          padding: '0 20px',
+          zIndex: 100
+        }}>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.6, -13)); }}
+              onMouseDown={() => setPlayerX(x => Math.max(x - 0.6, -13))}
+              style={{
+                width: '70px',
+                height: '70px',
+                fontSize: '30px',
+                background: 'linear-gradient(to bottom, rgba(0,255,255,0.4), rgba(0,150,255,0.3))',
+                border: '2px solid #0ff',
+                color: '#0ff',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                userSelect: 'none',
+                boxShadow: '0 0 15px #0ff'
+              }}
+            >◀</button>
+            <button
+              onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.6, 13)); }}
+              onMouseDown={() => setPlayerX(x => Math.min(x + 0.6, 13))}
+              style={{
+                width: '70px',
+                height: '70px',
+                fontSize: '30px',
+                background: 'linear-gradient(to bottom, rgba(0,255,255,0.4), rgba(0,150,255,0.3))',
+                border: '2px solid #0ff',
+                color: '#0ff',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                userSelect: 'none',
+                boxShadow: '0 0 15px #0ff'
+              }}
+            >▶</button>
+          </div>
           <button
-            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.6, -13)); }}
-            onMouseDown={() => setPlayerX(x => Math.max(x - 0.6, -13))}
+            onTouchStart={(e) => { e.preventDefault(); if(window.gameShoot) window.gameShoot(); }}
+            onMouseDown={() => { if(window.gameShoot) window.gameShoot(); }}
             style={{
-              width: '70px',
+              width: '90px',
               height: '70px',
-              fontSize: '30px',
-              background: 'linear-gradient(to bottom, rgba(0,255,255,0.4), rgba(0,150,255,0.3))',
-              border: '2px solid #0ff',
-              color: '#0ff',
-              borderRadius: '50%',
+              fontSize: '24px',
+              background: 'linear-gradient(to bottom, rgba(255,100,100,0.5), rgba(255,0,100,0.4))',
+              border: '2px solid #f0f',
+              color: '#fff',
+              borderRadius: '35px',
               cursor: 'pointer',
               userSelect: 'none',
-              boxShadow: '0 0 15px #0ff'
+              boxShadow: '0 0 15px #f0f'
             }}
-          >◀</button>
-          <button
-            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.6, 13)); }}
-            onMouseDown={() => setPlayerX(x => Math.min(x + 0.6, 13))}
-            style={{
-              width: '70px',
-              height: '70px',
-              fontSize: '30px',
-              background: 'linear-gradient(to bottom, rgba(0,255,255,0.4), rgba(0,150,255,0.3))',
-              border: '2px solid #0ff',
-              color: '#0ff',
-              borderRadius: '50%',
-              cursor: 'pointer',
-              userSelect: 'none',
-              boxShadow: '0 0 15px #0ff'
-            }}
-          >▶</button>
+          >🔥</button>
         </div>
-        <button
-          onTouchStart={(e) => { e.preventDefault(); if(window.gameShoot) window.gameShoot(); }}
-          onMouseDown={() => { if(window.gameShoot) window.gameShoot(); }}
-          style={{
-            width: '90px',
-            height: '70px',
-            fontSize: '24px',
-            background: 'linear-gradient(to bottom, rgba(255,100,100,0.5), rgba(255,0,100,0.4))',
-            border: '2px solid #f0f',
-            color: '#fff',
-            borderRadius: '35px',
-            cursor: 'pointer',
-            userSelect: 'none',
-            boxShadow: '0 0 15px #f0f'
-          }}
-        >🔥</button>
-      </div>
+      )}
 
       <Canvas camera={{ position: [0, 2, 30], fov: 50 }}>
         <Suspense fallback={null}>
