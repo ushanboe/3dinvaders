@@ -82,28 +82,24 @@ const useSound = () => {
 
 // Explosion particle effect
 function Explosion({ position, onComplete, color = '#ff6600' }) {
-  const particles = useRef([]);
   const groupRef = useRef();
-  const [opacity, setOpacity] = useState(1);
-  const startTime = useRef(Date.now());
-  
-  // Create particles on mount
-  useMemo(() => {
-    particles.current = [];
+  const [particles] = useState(() => {
+    const p = [];
     for (let i = 0; i < 12; i++) {
       const angle = (i / 12) * Math.PI * 2;
       const speed = 0.1 + Math.random() * 0.15;
-      particles.current.push({
-        x: 0,
-        y: 0,
-        z: 0,
+      p.push({
+        x: 0, y: 0, z: 0,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed + Math.random() * 0.1,
         vz: (Math.random() - 0.5) * 0.1,
         size: 0.2 + Math.random() * 0.3
       });
     }
-  }, []);
+    return p;
+  });
+  const [opacity, setOpacity] = useState(1);
+  const startTime = useRef(Date.now());
   
   useFrame(() => {
     const elapsed = (Date.now() - startTime.current) / 1000;
@@ -115,17 +111,17 @@ function Explosion({ position, onComplete, color = '#ff6600' }) {
     
     setOpacity(1 - elapsed * 2);
     
-    particles.current.forEach(p => {
+    particles.forEach(p => {
       p.x += p.vx;
       p.y += p.vy;
       p.z += p.vz;
-      p.vy -= 0.01; // gravity
+      p.vy -= 0.01;
     });
   });
   
   return (
     <group ref={groupRef} position={position}>
-      {particles.current.map((p, i) => (
+      {particles.map((p, i) => (
         <mesh key={i} position={[p.x, p.y, p.z]}>
           <sphereGeometry args={[p.size, 6, 6]} />
           <meshBasicMaterial color={color} transparent opacity={opacity} />
@@ -137,13 +133,12 @@ function Explosion({ position, onComplete, color = '#ff6600' }) {
 
 // Enemy sprite using PNG texture
 function EnemySprite({ position, row }) {
-  // Map row to texture file: row 4 (top) = one.png, row 0 (bottom) = five.png
   const textureFiles = [
-    '/3dinvaders/five.png',   // row 0 (bottom)
-    '/3dinvaders/four.png',   // row 1
-    '/3dinvaders/three.png',  // row 2
-    '/3dinvaders/two.png',    // row 3
-    '/3dinvaders/one.png'     // row 4 (top)
+    '/3dinvaders/five.png',
+    '/3dinvaders/four.png',
+    '/3dinvaders/three.png',
+    '/3dinvaders/two.png',
+    '/3dinvaders/one.png'
   ];
   
   const texture = useLoader(THREE.TextureLoader, textureFiles[row] || textureFiles[0]);
@@ -281,6 +276,10 @@ function Game({ gameState, gameActions }) {
   const [currentMovingRow, setCurrentMovingRow] = useState(4);
   const moveTickRef = useRef(0);
   
+  // Refs for collision detection
+  const enemiesRef = useRef([]);
+  const bulletsRef = useRef([]);
+  
   const playSound = useSound();
   const lastShotTime = useRef(0);
   const playerXRef = useRef(playerX);
@@ -292,16 +291,25 @@ function Game({ gameState, gameActions }) {
   const DROP_AMOUNT = 0.5;
   const MOVE_SPEED = 0.4;
   
-  // Y positions - enemies start HIGHER now
+  // Y positions
   const PLAYER_Y = -8;
   const BARRIER_Y = -5;
-  const ENEMY_START_Y = 4;  // Moved UP from 0 to 4
+  const ENEMY_START_Y = 4;
   
+  // Keep refs in sync
   useEffect(() => {
     playerXRef.current = playerX;
   }, [playerX]);
+  
+  useEffect(() => {
+    enemiesRef.current = enemies;
+  }, [enemies]);
+  
+  useEffect(() => {
+    bulletsRef.current = bullets;
+  }, [bullets]);
 
-  // Initialize enemies - 5 rows x 11 cols
+  // Initialize enemies
   useEffect(() => {
     const initialEnemies = [];
     const rows = 5;
@@ -322,7 +330,6 @@ function Game({ gameState, gameActions }) {
     }
     setEnemies(initialEnemies);
     
-    // Initialize 4 barriers
     const barrierPositions = [-10, -3.5, 3.5, 10];
     const initialBarriers = barrierPositions.map((x, idx) => ({
       id: idx,
@@ -369,8 +376,9 @@ function Game({ gameState, gameActions }) {
 
     const gameLoop = setInterval(() => {
       // Speed based on remaining enemies
+      const currentEnemies = enemiesRef.current;
       const baseInterval = 3;
-      const speedBoost = Math.max(0, Math.floor((55 - enemies.length) / 10));
+      const speedBoost = Math.max(0, Math.floor((55 - currentEnemies.length) / 10));
       const moveInterval = Math.max(1, baseInterval - speedBoost);
       
       moveTickRef.current++;
@@ -459,10 +467,10 @@ function Game({ gameState, gameActions }) {
 
       // Enemy shooting
       if (Math.random() < 0.015) {
-        setEnemies(prev => {
-          if (prev.length === 0) return prev;
+        const currentEnemiesForShoot = enemiesRef.current;
+        if (currentEnemiesForShoot.length > 0) {
           const columns = {};
-          prev.forEach(e => {
+          currentEnemiesForShoot.forEach(e => {
             const col = Math.round(e.x * 10);
             if (!columns[col] || e.y < columns[col].y) {
               columns[col] = e;
@@ -476,52 +484,63 @@ function Game({ gameState, gameActions }) {
             y: shooter.y - 1,
             z: 0
           }]);
-          return prev;
-        });
+        }
       }
 
-      // Collision: player bullets vs enemies
-      setEnemies(prevEnemies => {
-        let remainingEnemies = [...prevEnemies];
+      // COLLISION: player bullets vs enemies - FIXED
+      const currentBullets = bulletsRef.current;
+      const currentEnemiesForCollision = enemiesRef.current;
+      
+      const hitEnemyIds = new Set();
+      const hitBulletIds = new Set();
+      const explosionsToAdd = [];
+      
+      for (const bullet of currentBullets) {
+        if (hitBulletIds.has(bullet.id)) continue;
         
-        setBullets(prevBullets => {
-          return prevBullets.filter(bullet => {
-            let hitEnemy = null;
-            let closestY = Infinity;
-            
-            for (const enemy of remainingEnemies) {
-              const dx = Math.abs(bullet.x - enemy.x);
-              const dy = Math.abs(bullet.y - enemy.y);
-              
-              if (dx < 1.2 && dy < 1.2) {
-                if (enemy.y < closestY) {
-                  closestY = enemy.y;
-                  hitEnemy = enemy;
-                }
-              }
+        let hitEnemy = null;
+        let closestY = Infinity;
+        
+        for (const enemy of currentEnemiesForCollision) {
+          if (hitEnemyIds.has(enemy.id)) continue;
+          
+          const dx = Math.abs(bullet.x - enemy.x);
+          const dy = Math.abs(bullet.y - enemy.y);
+          
+          if (dx < 1.2 && dy < 1.2) {
+            if (enemy.y < closestY) {
+              closestY = enemy.y;
+              hitEnemy = enemy;
             }
-            
-            if (hitEnemy) {
-              remainingEnemies = remainingEnemies.filter(e => e.id !== hitEnemy.id);
-              // ADD EXPLOSION!
-              addExplosion(hitEnemy.x, hitEnemy.y, hitEnemy.z, '#ff6600');
-              setScore(s => {
-                const newScore = s + 10;
-                if (newScore > highScore) {
-                  setHighScore(newScore);
-                  localStorage.setItem('highScore', newScore.toString());
-                }
-                return newScore;
-              });
-              playSound('explosion');
-              return false;
-            }
-            return true;
-          });
+          }
+        }
+        
+        if (hitEnemy) {
+          hitEnemyIds.add(hitEnemy.id);
+          hitBulletIds.add(bullet.id);
+          explosionsToAdd.push({ x: hitEnemy.x, y: hitEnemy.y, z: hitEnemy.z });
+        }
+      }
+      
+      // Apply hits
+      if (hitEnemyIds.size > 0) {
+        setEnemies(prev => prev.filter(e => !hitEnemyIds.has(e.id)));
+        setBullets(prev => prev.filter(b => !hitBulletIds.has(b.id)));
+        
+        explosionsToAdd.forEach(exp => {
+          addExplosion(exp.x, exp.y, exp.z, '#ff6600');
+          playSound('explosion');
         });
         
-        return remainingEnemies;
-      });
+        setScore(s => {
+          const newScore = s + (hitEnemyIds.size * 10);
+          if (newScore > highScore) {
+            setHighScore(newScore);
+            localStorage.setItem('highScore', newScore.toString());
+          }
+          return newScore;
+        });
+      }
 
       // Collision: player bullets vs barriers
       setBullets(prevBullets => {
@@ -594,7 +613,6 @@ function Game({ gameState, gameActions }) {
         );
         
         if (hit) {
-          // ADD PLAYER HIT EXPLOSION!
           addExplosion(currentPlayerX, PLAYER_Y, 0, '#ff0000');
           setPlayerHit(true);
           setTimeout(() => setPlayerHit(false), 300);
@@ -617,7 +635,7 @@ function Game({ gameState, gameActions }) {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameOver, paused, playSound, highScore, moveDirection, currentMovingRow, enemies.length, setGameOver, setScore, setLives, setHighScore, addExplosion]);
+  }, [gameOver, paused, playSound, highScore, moveDirection, currentMovingRow, setGameOver, setScore, setLives, setHighScore, addExplosion]);
 
   // Keyboard controls
   useEffect(() => {
@@ -665,7 +683,6 @@ function Game({ gameState, gameActions }) {
         <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z]} isEnemy={true} />
       ))}
       
-      {/* Explosions */}
       {explosions.map(exp => (
         <Explosion 
           key={exp.id} 
