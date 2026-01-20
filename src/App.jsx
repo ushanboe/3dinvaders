@@ -1716,6 +1716,18 @@ export default function App() {
                 type="text"
                 value={playerName}
                 onChange={(e) => setPlayerName(e.target.value.toUpperCase().slice(0, 10))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && playerName.trim()) {
+                    const accuracy = shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0;
+                    const newEntry = { name: playerName.trim(), score, level, accuracy, date: new Date().toLocaleDateString(), isNew: true };
+                    const newScores = [...topScores.map(s => ({...s, isNew: false})), newEntry]
+                      .sort((a, b) => b.score - a.score)
+                      .slice(0, 10);
+                    setTopScores(newScores);
+                    localStorage.setItem("topScores", JSON.stringify(newScores));
+                    setShowNameEntry(false);
+                  }
+                }}
                 placeholder="YOUR NAME"
                 maxLength={10}
                 style={{
