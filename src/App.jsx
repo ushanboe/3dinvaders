@@ -271,8 +271,10 @@ function Game({ gameState, gameActions }) {
   const [explosions, setExplosions] = useState([]);
   const [playerHit, setPlayerHit] = useState(false);
   
-  // Wave movement state - CLASSIC: all enemies move together
+  // Wave movement state - ROW BY ROW
   const [moveDirection, setMoveDirection] = useState(1);
+  const [currentMovingRow, setCurrentMovingRow] = useState(4); // Start from top row (row 4)
+  const [pendingDrop, setPendingDrop] = useState(false);
   const moveTickRef = useRef(0);
   const initialEnemyCount = useRef(55);
   
@@ -288,13 +290,13 @@ function Game({ gameState, gameActions }) {
   const LEFT_BOUNDARY = -14;
   const RIGHT_BOUNDARY = 14;
   const PLAYER_LIMIT = 13;
-  const DROP_AMOUNT = 0.8;  // How much enemies drop when hitting edge
-  const MOVE_SPEED = 0.5;   // Horizontal move speed
+  const DROP_AMOUNT = 0.6;
+  const MOVE_SPEED = 0.6;
   
   // Y positions
   const PLAYER_Y = -8;
   const BARRIER_Y = -5;
-  const ENEMY_START_Y = 6;  // Start higher
+  const ENEMY_START_Y = 6;
   
   // Keep refs in sync
   useEffect(() => {
@@ -309,13 +311,13 @@ function Game({ gameState, gameActions }) {
     bulletsRef.current = bullets;
   }, [bullets]);
 
-  // Initialize enemies - 5 rows x 11 cols with MORE vertical spacing
+  // Initialize enemies
   useEffect(() => {
     const initialEnemies = [];
     const rows = 5;
     const cols = 11;
-    const spacingX = 2.5;   // Horizontal spacing
-    const spacingY = 2.8;   // INCREASED vertical spacing to prevent overlap
+    const spacingX = 2.5;
+    const spacingY = 2.5;
     
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
@@ -378,52 +380,96 @@ function Game({ gameState, gameActions }) {
     const gameLoop = setInterval(() => {
       const currentEnemies = enemiesRef.current;
       
-      // Speed calculation - LESS AGGRESSIVE
-      // Base interval of 6 ticks, minimum 2 ticks
-      // Speed increases more gradually
+      // Speed calculation - VERY GRADUAL
+      // Base interval 8 ticks (400ms between row moves)
+      // Speed up every 20 enemies destroyed
       const enemiesDestroyed = initialEnemyCount.current - currentEnemies.length;
-      const speedBoost = Math.floor(enemiesDestroyed / 15); // Every 15 enemies = 1 speed boost
-      const moveInterval = Math.max(2, 6 - speedBoost);
+      const speedBoost = Math.floor(enemiesDestroyed / 20);
+      const moveInterval = Math.max(3, 8 - speedBoost);
       
       moveTickRef.current++;
       
-      // CLASSIC MOVEMENT: All enemies move together
+      // ROW-BY-ROW WAVE MOVEMENT
       if (moveTickRef.current >= moveInterval) {
         moveTickRef.current = 0;
         
         setEnemies(prev => {
           if (prev.length === 0) return prev;
           
-          // Find boundaries of entire formation
-          const rightMost = Math.max(...prev.map(e => e.x));
-          const leftMost = Math.min(...prev.map(e => e.x));
+          // Get all active rows (sorted high to low: 4,3,2,1,0)
+          const activeRows = [...new Set(prev.map(e => e.row))].sort((a, b) => b - a);
+          if (activeRows.length === 0) return prev;
           
-          let shouldDrop = false;
-          let newDirection = moveDirection;
-          
-          // Check if we hit a boundary
-          if (moveDirection === 1 && rightMost + MOVE_SPEED >= RIGHT_BOUNDARY) {
-            shouldDrop = true;
-            newDirection = -1;
-          } else if (moveDirection === -1 && leftMost - MOVE_SPEED <= LEFT_BOUNDARY) {
-            shouldDrop = true;
-            newDirection = 1;
+          // Find which row to move
+          let rowToMove = currentMovingRow;
+          if (!activeRows.includes(rowToMove)) {
+            // Current row is empty, find next available
+            rowToMove = activeRows.find(r => r <= currentMovingRow);
+            if (rowToMove === undefined) rowToMove = activeRows[0];
           }
           
-          // Move ALL enemies together
-          const newEnemies = prev.map(e => ({
+          const rowEnemies = prev.filter(e => e.row === rowToMove);
+          const otherEnemies = prev.filter(e => e.row !== rowToMove);
+          
+          if (rowEnemies.length === 0) {
+            // Skip to next row
+            const nextRowIdx = activeRows.indexOf(rowToMove) + 1;
+            if (nextRowIdx < activeRows.length) {
+              setCurrentMovingRow(activeRows[nextRowIdx]);
+            } else {
+              setCurrentMovingRow(activeRows[0]);
+            }
+            return prev;
+          }
+          
+          // Check if this row needs to drop (hit boundary)
+          const rightMost = Math.max(...rowEnemies.map(e => e.x));
+          const leftMost = Math.min(...rowEnemies.map(e => e.x));
+          
+          let shouldDrop = pendingDrop;
+          let triggerDrop = false;
+          
+          if (moveDirection === 1 && rightMost + MOVE_SPEED >= RIGHT_BOUNDARY) {
+            triggerDrop = true;
+          } else if (moveDirection === -1 && leftMost - MOVE_SPEED <= LEFT_BOUNDARY) {
+            triggerDrop = true;
+          }
+          
+          // Move this row
+          const movedRowEnemies = rowEnemies.map(e => ({
             ...e,
             x: shouldDrop ? e.x : e.x + (MOVE_SPEED * moveDirection),
             y: shouldDrop ? e.y - DROP_AMOUNT : e.y
           }));
           
-          if (shouldDrop) {
-            setMoveDirection(newDirection);
-          }
-          
           playSound('step');
           
-          // Check game over - enemies reached player level
+          // Move to next row
+          const currentRowIdx = activeRows.indexOf(rowToMove);
+          const nextRowIdx = currentRowIdx + 1;
+          
+          if (nextRowIdx >= activeRows.length) {
+            // Completed all rows, start from top again
+            setCurrentMovingRow(activeRows[0]);
+            
+            // If we triggered a drop, next cycle all rows drop and reverse
+            if (triggerDrop) {
+              setPendingDrop(true);
+            } else if (pendingDrop) {
+              // We just finished dropping, now reverse direction
+              setPendingDrop(false);
+              setMoveDirection(d => -d);
+            }
+          } else {
+            setCurrentMovingRow(activeRows[nextRowIdx]);
+            if (triggerDrop && !pendingDrop) {
+              setPendingDrop(true);
+            }
+          }
+          
+          const newEnemies = [...otherEnemies, ...movedRowEnemies];
+          
+          // Check game over
           if (newEnemies.some(e => e.y <= BARRIER_Y)) {
             setGameOver(true);
             playSound('gameOver');
@@ -447,7 +493,7 @@ function Game({ gameState, gameActions }) {
           .filter(b => b.y > PLAYER_Y - 2)
       );
 
-      // Enemy shooting - slightly less frequent
+      // Enemy shooting
       if (Math.random() < 0.012) {
         const currentEnemiesForShoot = enemiesRef.current;
         if (currentEnemiesForShoot.length > 0) {
@@ -617,7 +663,7 @@ function Game({ gameState, gameActions }) {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameOver, paused, playSound, highScore, moveDirection, setGameOver, setScore, setLives, setHighScore, addExplosion]);
+  }, [gameOver, paused, playSound, highScore, moveDirection, currentMovingRow, pendingDrop, setGameOver, setScore, setLives, setHighScore, addExplosion]);
 
   // Keyboard controls
   useEffect(() => {
@@ -790,7 +836,8 @@ export default function App() {
               cursor: 'pointer',
               userSelect: 'none'
             }}
-          >◀</button>\n          <button
+          >◀</button>
+          <button
             onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.6, 13)); }}
             onMouseDown={() => setPlayerX(x => Math.min(x + 0.6, 13))}
             style={{
