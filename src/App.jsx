@@ -162,7 +162,7 @@ function Player({ position }) {
 function Bullet({ position, isEnemy }) {
   return (
     <mesh position={position}>
-      <sphereGeometry args={[0.2, 8, 8]} />
+      <sphereGeometry args={[0.25, 8, 8]} />
       <meshStandardMaterial 
         color={isEnemy ? "#ff0000" : "#00ffff"} 
         emissive={isEnemy ? "#ff0000" : "#00ffff"} 
@@ -220,22 +220,24 @@ function Game({ gameState, gameActions }) {
     playerXRef.current = playerX;
   }, [playerX]);
 
-  // Initialize enemies - 5 rows x 8 cols = 40 enemies with better spacing
+  // Initialize enemies - 5 rows x 8 cols = 40 enemies
+  // All rows visible from start, closer to camera
   useEffect(() => {
     const initialEnemies = [];
     const rows = 5;
-    const cols = 8;  // Reduced from 12 to 8
-    const spacingX = 4;  // Increased from 2.5 to 4
-    const spacingY = 2.5;  // Vertical spacing between rows
-    const spacingZ = 4;  // Depth spacing between rows
+    const cols = 8;
+    const spacingX = 4;      // Horizontal spacing
+    const spacingY = 1.8;    // Vertical spacing (reduced)
+    const spacingZ = 3;      // Depth spacing (reduced so all visible)
+    const startZ = -8;       // Start closer (was -25)
     
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         initialEnemies.push({
           id: `${row}-${col}`,
           x: (col - cols / 2 + 0.5) * spacingX,
-          y: 2 + row * spacingY,
-          z: -25 + row * spacingZ,
+          y: 1.5 + row * spacingY,  // Lower starting height
+          z: startZ - row * spacingZ,  // Back rows further away
           row: row
         });
       }
@@ -246,14 +248,14 @@ function Game({ gameState, gameActions }) {
   // Shoot function
   const shoot = useCallback(() => {
     const now = Date.now();
-    if (now - lastShotTime.current < 250) return;
+    if (now - lastShotTime.current < 200) return;  // Faster shooting
     lastShotTime.current = now;
     
     setBullets(prev => [...prev, {
       id: Date.now(),
       x: playerXRef.current,
-      y: 1,
-      z: 4
+      y: 1.2,
+      z: 5
     }]);
     playSound('shoot');
   }, [playSound]);
@@ -272,10 +274,10 @@ function Game({ gameState, gameActions }) {
       setEnemies(prev => {
         const newEnemies = prev.map(e => ({
           ...e,
-          z: e.z + 0.03
+          z: e.z + 0.04  // Slightly faster
         }));
         
-        if (newEnemies.some(e => e.z > 5)) {
+        if (newEnemies.some(e => e.z > 6)) {
           setGameOver(true);
           playSound('gameOver');
         }
@@ -283,22 +285,22 @@ function Game({ gameState, gameActions }) {
         return newEnemies;
       });
 
-      // Move player bullets
+      // Move player bullets - SLOWER for better collision detection
       setBullets(prev => 
         prev
-          .map(b => ({ ...b, z: b.z - 0.6, y: b.y + 0.1 }))
-          .filter(b => b.z > -30)
+          .map(b => ({ ...b, z: b.z - 0.4, y: b.y + 0.08 }))  // Slower bullets
+          .filter(b => b.z > -25)
       );
 
       // Move enemy bullets
       setEnemyBullets(prev =>
         prev
-          .map(b => ({ ...b, z: b.z + 0.35, y: b.y - 0.05 }))
+          .map(b => ({ ...b, z: b.z + 0.3, y: b.y - 0.04 }))
           .filter(b => b.z < 12)
       );
 
       // Enemy shooting
-      if (Math.random() < 0.025) {
+      if (Math.random() < 0.02) {
         setEnemies(prev => {
           if (prev.length === 0) return prev;
           const shooter = prev[Math.floor(Math.random() * prev.length)];
@@ -313,6 +315,7 @@ function Game({ gameState, gameActions }) {
       }
 
       // Collision detection - player bullets vs enemies
+      // BIGGER hitbox for better detection
       setBullets(prevBullets => {
         let remainingBullets = [...prevBullets];
         
@@ -320,11 +323,13 @@ function Game({ gameState, gameActions }) {
           let remainingEnemies = [...prevEnemies];
           
           remainingBullets = remainingBullets.filter(bullet => {
-            const hitEnemy = remainingEnemies.find(enemy => 
-              Math.abs(bullet.x - enemy.x) < 1.5 &&
-              Math.abs(bullet.z - enemy.z) < 2 &&
-              Math.abs(bullet.y - enemy.y) < 1.5
-            );
+            const hitEnemy = remainingEnemies.find(enemy => {
+              const dx = Math.abs(bullet.x - enemy.x);
+              const dy = Math.abs(bullet.y - enemy.y);
+              const dz = Math.abs(bullet.z - enemy.z);
+              // Larger hitbox: 2 units X, 2.5 units Y, 2.5 units Z
+              return dx < 2 && dy < 2.5 && dz < 2.5;
+            });
             
             if (hitEnemy) {
               remainingEnemies = remainingEnemies.filter(e => e.id !== hitEnemy.id);
@@ -352,9 +357,9 @@ function Game({ gameState, gameActions }) {
       setEnemyBullets(prev => {
         const currentPlayerX = playerXRef.current;
         const hit = prev.find(b => 
-          Math.abs(b.x - currentPlayerX) < 1 &&
-          b.z > 4 &&
-          b.y < 1.5
+          Math.abs(b.x - currentPlayerX) < 1.2 &&
+          b.z > 5 &&
+          b.y < 2
         );
         
         if (hit) {
@@ -571,7 +576,7 @@ export default function App() {
         >🔥</button>
       </div>
 
-      <Canvas camera={{ position: [0, 15, 25], fov: 55 }}>
+      <Canvas camera={{ position: [0, 12, 22], fov: 60 }}>
         <Suspense fallback={null}>
           <Game gameState={gameState} gameActions={gameActions} />
         </Suspense>
