@@ -76,11 +76,11 @@ const useSound = () => {
         break;
       case 'step':
         oscillator.type = 'square';
-        oscillator.frequency.setValueAtTime(100 + Math.random() * 50, ctx.currentTime);
-        gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+        oscillator.frequency.setValueAtTime(80 + Math.random() * 40, ctx.currentTime);
+        gainNode.gain.setValueAtTime(0.12, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.06);
         oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.05);
+        oscillator.stop(ctx.currentTime + 0.06);
         break;
       case 'barrier':
         oscillator.type = 'triangle';
@@ -101,7 +101,7 @@ const useSound = () => {
 function CubeEnemy({ position, color }) {
   return (
     <mesh position={position}>
-      <boxGeometry args={[1.5, 1.5, 1.5]} />
+      <boxGeometry args={[1.2, 1.2, 1.2]} />
       <meshStandardMaterial color={color} />
     </mesh>
   );
@@ -148,12 +148,12 @@ function EnemyModel({ position, id }) {
   
   return (
     <group ref={group} position={position}>
-      <primitive object={clone} scale={1.2} rotation={[0, Math.PI, 0]} />
+      <primitive object={clone} scale={1.0} rotation={[0, Math.PI, 0]} />
     </group>
   );
 }
 
-// Player - positioned lower
+// Player - at bottom of screen
 function Player({ position }) {
   return (
     <group position={position}>
@@ -173,7 +173,7 @@ function Player({ position }) {
 function Bullet({ position, isEnemy }) {
   return (
     <mesh position={position}>
-      <boxGeometry args={[0.15, 0.6, 0.15]} />
+      <boxGeometry args={[0.15, 0.5, 0.15]} />
       <meshStandardMaterial 
         color={isEnemy ? "#ff0000" : "#00ffff"} 
         emissive={isEnemy ? "#ff0000" : "#00ffff"} 
@@ -185,9 +185,8 @@ function Bullet({ position, isEnemy }) {
 
 // Barrier/Shield - destructible
 function Barrier({ barrier }) {
-  // Create a blocky barrier shape
   const blocks = [];
-  const blockSize = 0.8;
+  const blockSize = 0.6;
   
   barrier.blocks.forEach((block, idx) => {
     if (block.health > 0) {
@@ -228,7 +227,6 @@ function Enemies({ enemies }) {
 // Create initial barrier blocks
 function createBarrierBlocks() {
   const blocks = [];
-  // Classic barrier shape - wider at bottom, narrower at top with arch
   const pattern = [
     [0,1,1,1,1,1,0],
     [1,1,1,1,1,1,1],
@@ -240,9 +238,9 @@ function createBarrierBlocks() {
     for (let col = 0; col < pattern[row].length; col++) {
       if (pattern[row][col] === 1) {
         blocks.push({
-          x: (col - 3) * 0.8,
-          y: (3 - row) * 0.8,
-          health: 3  // 3 hits to destroy
+          x: (col - 3) * 0.6,
+          y: (3 - row) * 0.6,
+          health: 3
         });
       }
     }
@@ -260,39 +258,45 @@ function Game({ gameState, gameActions }) {
   const [enemyBullets, setEnemyBullets] = useState([]);
   const [barriers, setBarriers] = useState([]);
   
-  // Movement state
+  // Wave movement state - which row is currently moving
   const [moveDirection, setMoveDirection] = useState(1);
-  const moveStepRef = useRef(0);
+  const [currentMovingRow, setCurrentMovingRow] = useState(4); // Start from top row (row 4)
+  const moveTickRef = useRef(0);
   
   const playSound = useSound();
   const lastShotTime = useRef(0);
   const playerXRef = useRef(playerX);
   
-  // Screen boundaries - much wider
-  const LEFT_BOUNDARY = -18;
-  const RIGHT_BOUNDARY = 18;
-  const PLAYER_LIMIT = 16;
-  const DROP_AMOUNT = 0.6;
-  const MOVE_SPEED = 0.35;
+  // Screen boundaries
+  const LEFT_BOUNDARY = -14;
+  const RIGHT_BOUNDARY = 14;
+  const PLAYER_LIMIT = 13;
+  const DROP_AMOUNT = 0.5;
+  const MOVE_SPEED = 0.4;
+  
+  // Y positions - everything lower on screen
+  const PLAYER_Y = -8;
+  const BARRIER_Y = -5;
+  const ENEMY_START_Y = 0;  // Enemies start at y=0 to y=8
   
   useEffect(() => {
     playerXRef.current = playerX;
   }, [playerX]);
 
-  // Initialize enemies - 5 rows x 11 cols
+  // Initialize enemies - 5 rows x 11 cols - positioned to fit on screen
   useEffect(() => {
     const initialEnemies = [];
     const rows = 5;
     const cols = 11;
-    const spacingX = 3;
-    const spacingY = 2.2;
+    const spacingX = 2.5;
+    const spacingY = 1.8;
     
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         initialEnemies.push({
           id: `${row}-${col}`,
           x: (col - cols / 2 + 0.5) * spacingX,
-          y: 14 + row * spacingY,  // Start higher
+          y: ENEMY_START_Y + row * spacingY,  // Row 0 at bottom, row 4 at top
           z: 0,
           row: row
         });
@@ -300,12 +304,12 @@ function Game({ gameState, gameActions }) {
     }
     setEnemies(initialEnemies);
     
-    // Initialize 4 barriers
-    const barrierPositions = [-12, -4, 4, 12];
+    // Initialize 4 barriers - positioned between player and enemies
+    const barrierPositions = [-10, -3.5, 3.5, 10];
     const initialBarriers = barrierPositions.map((x, idx) => ({
       id: idx,
       x: x,
-      y: 4,  // Between player and enemies
+      y: BARRIER_Y,
       blocks: createBarrierBlocks()
     }));
     setBarriers(initialBarriers);
@@ -314,13 +318,13 @@ function Game({ gameState, gameActions }) {
   // Shoot function
   const shoot = useCallback(() => {
     const now = Date.now();
-    if (now - lastShotTime.current < 300) return;  // Slower fire rate
+    if (now - lastShotTime.current < 350) return;
     lastShotTime.current = now;
     
     setBullets(prev => [...prev, {
       id: Date.now(),
       x: playerXRef.current,
-      y: 1.5,
+      y: PLAYER_Y + 1,
       z: 0
     }]);
     playSound('shoot');
@@ -331,44 +335,64 @@ function Game({ gameState, gameActions }) {
     return () => { window.gameShoot = null; };
   }, [shoot]);
 
-  // Game loop
+  // Game loop with ROW-BY-ROW wave movement
   useEffect(() => {
     if (gameOver || paused) return;
 
     const gameLoop = setInterval(() => {
       // Speed based on remaining enemies
-      const baseInterval = 10;
-      const speedBoost = Math.max(1, Math.floor((55 - enemies.length) / 6));
-      const moveInterval = Math.max(2, baseInterval - speedBoost);
+      const baseInterval = 3;  // Faster ticks for row-by-row
+      const speedBoost = Math.max(0, Math.floor((55 - enemies.length) / 10));
+      const moveInterval = Math.max(1, baseInterval - speedBoost);
       
-      moveStepRef.current++;
+      moveTickRef.current++;
       
-      // CLASSIC SPACE INVADERS MOVEMENT
-      if (moveStepRef.current >= moveInterval) {
-        moveStepRef.current = 0;
+      // ROW-BY-ROW WAVE MOVEMENT
+      if (moveTickRef.current >= moveInterval) {
+        moveTickRef.current = 0;
         
         setEnemies(prev => {
           if (prev.length === 0) return prev;
           
-          const rightMost = Math.max(...prev.map(e => e.x));
-          const leftMost = Math.min(...prev.map(e => e.x));
+          // Get unique rows that still have enemies
+          const activeRows = [...new Set(prev.map(e => e.row))].sort((a, b) => b - a);
+          if (activeRows.length === 0) return prev;
           
-          let newDirection = moveDirection;
+          // Find next row to move (cycle through rows top to bottom)
+          let rowToMove = currentMovingRow;
+          if (!activeRows.includes(rowToMove)) {
+            // Find next available row
+            rowToMove = activeRows.find(r => r <= currentMovingRow) || activeRows[0];
+          }
+          
+          // Get enemies in this row
+          const rowEnemies = prev.filter(e => e.row === rowToMove);
+          const otherEnemies = prev.filter(e => e.row !== rowToMove);
+          
+          if (rowEnemies.length === 0) {
+            // Move to next row
+            const nextRow = activeRows.find(r => r < rowToMove);
+            setCurrentMovingRow(nextRow !== undefined ? nextRow : activeRows[0]);
+            return prev;
+          }
+          
+          // Check boundaries for THIS row
+          const rightMost = Math.max(...rowEnemies.map(e => e.x));
+          const leftMost = Math.min(...rowEnemies.map(e => e.x));
+          
+          let shouldReverse = false;
           let shouldDrop = false;
           
           if (moveDirection === 1 && rightMost + MOVE_SPEED >= RIGHT_BOUNDARY) {
-            newDirection = -1;
+            shouldReverse = true;
             shouldDrop = true;
           } else if (moveDirection === -1 && leftMost - MOVE_SPEED <= LEFT_BOUNDARY) {
-            newDirection = 1;
+            shouldReverse = true;
             shouldDrop = true;
           }
           
-          if (newDirection !== moveDirection) {
-            setMoveDirection(newDirection);
-          }
-          
-          const newEnemies = prev.map(e => ({
+          // Move only this row
+          const movedRowEnemies = rowEnemies.map(e => ({
             ...e,
             x: shouldDrop ? e.x : e.x + (MOVE_SPEED * moveDirection),
             y: shouldDrop ? e.y - DROP_AMOUNT : e.y
@@ -376,8 +400,24 @@ function Game({ gameState, gameActions }) {
           
           playSound('step');
           
-          // Game over if enemies reach barrier level
-          if (newEnemies.some(e => e.y <= 5)) {
+          // Move to next row for next tick
+          const nextRowIdx = activeRows.indexOf(rowToMove);
+          const nextRow = activeRows[nextRowIdx + 1];
+          if (nextRow !== undefined) {
+            setCurrentMovingRow(nextRow);
+          } else {
+            // Completed all rows, start from top again
+            setCurrentMovingRow(activeRows[0]);
+            // Only reverse direction after all rows have moved
+            if (shouldReverse) {
+              setMoveDirection(d => -d);
+            }
+          }
+          
+          const newEnemies = [...otherEnemies, ...movedRowEnemies];
+          
+          // Game over if any enemy reaches barrier level
+          if (newEnemies.some(e => e.y <= BARRIER_Y + 2)) {
             setGameOver(true);
             playSound('gameOver');
           }
@@ -389,19 +429,19 @@ function Game({ gameState, gameActions }) {
       // Move player bullets UP
       setBullets(prev => 
         prev
-          .map(b => ({ ...b, y: b.y + 0.4 }))
-          .filter(b => b.y < 30)
+          .map(b => ({ ...b, y: b.y + 0.5 }))
+          .filter(b => b.y < 15)
       );
 
       // Move enemy bullets DOWN
       setEnemyBullets(prev =>
         prev
-          .map(b => ({ ...b, y: b.y - 0.25 }))
-          .filter(b => b.y > -1)
+          .map(b => ({ ...b, y: b.y - 0.3 }))
+          .filter(b => b.y > PLAYER_Y - 2)
       );
 
       // Enemy shooting
-      if (Math.random() < 0.012) {
+      if (Math.random() < 0.015) {
         setEnemies(prev => {
           if (prev.length === 0) return prev;
           const columns = {};
@@ -423,14 +463,12 @@ function Game({ gameState, gameActions }) {
         });
       }
 
-      // FIXED: Collision detection - bullet hits ONE enemy then disappears
+      // Collision: player bullets vs enemies (ONE enemy per bullet)
       setEnemies(prevEnemies => {
         let remainingEnemies = [...prevEnemies];
-        const bulletsToRemove = new Set();
         
         setBullets(prevBullets => {
           return prevBullets.filter(bullet => {
-            // Find the CLOSEST enemy that this bullet hits (lowest Y = closest to player)
             let hitEnemy = null;
             let closestY = Infinity;
             
@@ -438,8 +476,7 @@ function Game({ gameState, gameActions }) {
               const dx = Math.abs(bullet.x - enemy.x);
               const dy = Math.abs(bullet.y - enemy.y);
               
-              if (dx < 1.5 && dy < 1.2) {
-                // Hit! Find the one with lowest Y (closest to bullet origin)
+              if (dx < 1.2 && dy < 1.0) {
                 if (enemy.y < closestY) {
                   closestY = enemy.y;
                   hitEnemy = enemy;
@@ -448,7 +485,6 @@ function Game({ gameState, gameActions }) {
             }
             
             if (hitEnemy) {
-              // Remove only this one enemy
               remainingEnemies = remainingEnemies.filter(e => e.id !== hitEnemy.id);
               setScore(s => {
                 const newScore = s + 10;
@@ -459,9 +495,9 @@ function Game({ gameState, gameActions }) {
                 return newScore;
               });
               playSound('explosion');
-              return false;  // Remove this bullet
+              return false;
             }
-            return true;  // Keep bullet
+            return true;
           });
         });
         
@@ -481,8 +517,8 @@ function Game({ gameState, gameActions }) {
               const blockY = barrier.y + block.y;
               
               const hitBullet = remaining.find(b => 
-                Math.abs(b.x - blockX) < 0.5 &&
-                Math.abs(b.y - blockY) < 0.5
+                Math.abs(b.x - blockX) < 0.4 &&
+                Math.abs(b.y - blockY) < 0.4
               );
               
               if (hitBullet) {
@@ -512,8 +548,8 @@ function Game({ gameState, gameActions }) {
               const blockY = barrier.y + block.y;
               
               const hitBullet = remaining.find(b => 
-                Math.abs(b.x - blockX) < 0.5 &&
-                Math.abs(b.y - blockY) < 0.5
+                Math.abs(b.x - blockX) < 0.4 &&
+                Math.abs(b.y - blockY) < 0.4
               );
               
               if (hitBullet) {
@@ -535,7 +571,7 @@ function Game({ gameState, gameActions }) {
         const currentPlayerX = playerXRef.current;
         const hit = prev.find(b => 
           Math.abs(b.x - currentPlayerX) < 1 &&
-          b.y < 1.2 && b.y > 0
+          b.y < PLAYER_Y + 1 && b.y > PLAYER_Y - 0.5
         );
         
         if (hit) {
@@ -557,7 +593,7 @@ function Game({ gameState, gameActions }) {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameOver, paused, playSound, highScore, moveDirection, enemies.length, setGameOver, setScore, setLives, setHighScore]);
+  }, [gameOver, paused, playSound, highScore, moveDirection, currentMovingRow, enemies.length, setGameOver, setScore, setLives, setHighScore]);
 
   // Keyboard controls
   useEffect(() => {
@@ -567,11 +603,11 @@ function Game({ gameState, gameActions }) {
       switch(e.key) {
         case 'ArrowLeft':
         case 'a':
-          setPlayerX(x => Math.max(x - 0.7, -PLAYER_LIMIT));
+          setPlayerX(x => Math.max(x - 0.6, -PLAYER_LIMIT));
           break;
         case 'ArrowRight':
         case 'd':
-          setPlayerX(x => Math.min(x + 0.7, PLAYER_LIMIT));
+          setPlayerX(x => Math.min(x + 0.6, PLAYER_LIMIT));
           break;
         case ' ':
           e.preventDefault();
@@ -587,13 +623,12 @@ function Game({ gameState, gameActions }) {
   return (
     <>
       <ambientLight intensity={0.6} />
-      <pointLight position={[0, 30, 10]} intensity={1} />
-      <directionalLight position={[0, 20, 10]} intensity={0.8} />
+      <pointLight position={[0, 15, 10]} intensity={1} />
+      <directionalLight position={[0, 10, 10]} intensity={0.8} />
       
-      <Player position={[playerX, 0.5, 0]} />
+      <Player position={[playerX, PLAYER_Y, 0]} />
       <Enemies enemies={enemies} />
       
-      {/* Barriers */}
       {barriers.map(barrier => (
         <Barrier key={barrier.id} barrier={barrier} />
       ))}
@@ -709,8 +744,8 @@ export default function App() {
       }}>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.7, -16)); }}
-            onMouseDown={() => setPlayerX(x => Math.max(x - 0.7, -16))}
+            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.6, -13)); }}
+            onMouseDown={() => setPlayerX(x => Math.max(x - 0.6, -13))}
             style={{
               width: '70px',
               height: '70px',
@@ -724,8 +759,8 @@ export default function App() {
             }}
           >◀</button>
           <button
-            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.7, 16)); }}
-            onMouseDown={() => setPlayerX(x => Math.min(x + 0.7, 16))}
+            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.6, 13)); }}
+            onMouseDown={() => setPlayerX(x => Math.min(x + 0.6, 13))}
             style={{
               width: '70px',
               height: '70px',
@@ -756,11 +791,8 @@ export default function App() {
         >🔥</button>
       </div>
 
-      {/* Orthographic-like camera - straight on view */}
-      <Canvas 
-        camera={{ position: [0, 12, 35], fov: 45 }}
-        orthographic={false}
-      >
+      {/* Camera positioned to see entire play area */}
+      <Canvas camera={{ position: [0, 0, 28], fov: 50 }}>
         <Suspense fallback={null}>
           <Game gameState={gameState} gameActions={gameActions} />
         </Suspense>
