@@ -204,11 +204,11 @@ function Explosion({ position, onComplete, color = '#ff6600' }) {
 // Enemy sprite using PNG texture
 function EnemySprite({ position, row }) {
   const textureFiles = [
-    '/five.png',
-    '/four.png',
-    '/three.png',
-    '/two.png',
-    '/one.png'
+    `${import.meta.env.BASE_URL}five.png`,
+    `${import.meta.env.BASE_URL}four.png`,
+    `${import.meta.env.BASE_URL}three.png`,
+    `${import.meta.env.BASE_URL}two.png`,
+    `${import.meta.env.BASE_URL}one.png`
   ];
   
   const texture = useLoader(THREE.TextureLoader, textureFiles[row] || textureFiles[0]);
@@ -222,7 +222,7 @@ function EnemySprite({ position, row }) {
 
 // Mystery invader sprite
 function MysterySprite({ position }) {
-  const texture = useLoader(THREE.TextureLoader, '/mystery.png');
+  const texture = useLoader(THREE.TextureLoader, `${import.meta.env.BASE_URL}mystery.png`);
   
   return (
     <sprite position={position} scale={[3, 3, 1]}>

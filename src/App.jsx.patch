@@ -1,0 +1,14 @@
+// Update texture paths to use Vite's base URL
+const BASE = import.meta.env.BASE_URL;
+
+// In EnemySprite:
+const textureFiles = [
+  `${BASE}five.png`,
+  `${BASE}four.png`,
+  `${BASE}three.png`,
+  `${BASE}two.png`,
+  `${BASE}one.png`
+];
+
+// In MysterySprite:
+const texture = useLoader(THREE.TextureLoader, `${BASE}mystery.png`);
