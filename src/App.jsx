@@ -74,7 +74,7 @@ const useSound = () => {
         oscillator.start(ctx.currentTime);
         oscillator.stop(ctx.currentTime + 0.5);
         break;
-      case 'step':  // Classic invader step sound
+      case 'step':
         oscillator.type = 'square';
         oscillator.frequency.setValueAtTime(100 + Math.random() * 50, ctx.currentTime);
         gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
@@ -174,16 +174,6 @@ function Bullet({ position, isEnemy }) {
   );
 }
 
-// Road
-function Road() {
-  return (
-    <mesh rotation={[-Math.PI / 2.5, 0, 0]} position={[0, -2, 0]}>
-      <planeGeometry args={[50, 60]} />
-      <meshStandardMaterial color="#1a1a2e" />
-    </mesh>
-  );
-}
-
 // Enemies container
 function Enemies({ enemies }) {
   const rowColors = ['#ff0066', '#ff6600', '#ffff00', '#00ff66', '#0066ff'];
@@ -222,22 +212,23 @@ function Game({ gameState, gameActions }) {
   const lastShotTime = useRef(0);
   const playerXRef = useRef(playerX);
   
-  // Boundaries for enemy movement
-  const LEFT_BOUNDARY = -14;
-  const RIGHT_BOUNDARY = 14;
-  const DROP_AMOUNT = 0.8;  // How much enemies drop when hitting edge
-  const MOVE_SPEED = 0.3;   // Sideways movement per step
+  // WIDER boundaries - full screen width
+  const LEFT_BOUNDARY = -22;
+  const RIGHT_BOUNDARY = 22;
+  const PLAYER_LIMIT = 20;  // Player movement limit
+  const DROP_AMOUNT = 0.8;
+  const MOVE_SPEED = 0.4;   // Slightly faster sideways
   
   useEffect(() => {
     playerXRef.current = playerX;
   }, [playerX]);
 
-  // Initialize enemies - 5 rows x 8 cols
+  // Initialize enemies - 5 rows x 10 cols (more columns for wider screen)
   useEffect(() => {
     const initialEnemies = [];
     const rows = 5;
-    const cols = 8;
-    const spacingX = 3.5;
+    const cols = 10;  // More columns
+    const spacingX = 4;  // Wider spacing
     const spacingY = 2;
     
     for (let row = 0; row < rows; row++) {
@@ -245,8 +236,8 @@ function Game({ gameState, gameActions }) {
         initialEnemies.push({
           id: `${row}-${col}`,
           x: (col - cols / 2 + 0.5) * spacingX,
-          y: 8 + row * spacingY,  // Start higher up
-          z: -5,  // All at same depth (classic style)
+          y: 10 + row * spacingY,
+          z: 0,
           row: row
         });
       }
@@ -264,7 +255,7 @@ function Game({ gameState, gameActions }) {
       id: Date.now(),
       x: playerXRef.current,
       y: 1.2,
-      z: 5
+      z: 0
     }]);
     playSound('shoot');
   }, [playSound]);
@@ -279,9 +270,9 @@ function Game({ gameState, gameActions }) {
     if (gameOver || paused) return;
 
     const gameLoop = setInterval(() => {
-      // Calculate speed based on remaining enemies (fewer = faster)
-      const baseInterval = 8;  // Move every N frames
-      const speedBoost = Math.max(1, Math.floor((40 - enemies.length) / 5));
+      // Speed based on remaining enemies
+      const baseInterval = 8;
+      const speedBoost = Math.max(1, Math.floor((50 - enemies.length) / 5));
       const moveInterval = Math.max(2, baseInterval - speedBoost);
       
       moveStepRef.current++;
@@ -293,14 +284,12 @@ function Game({ gameState, gameActions }) {
         setEnemies(prev => {
           if (prev.length === 0) return prev;
           
-          // Check if any enemy would hit the boundary
           const rightMost = Math.max(...prev.map(e => e.x));
           const leftMost = Math.min(...prev.map(e => e.x));
           
           let newDirection = moveDirection;
           let shouldDrop = false;
           
-          // Check if we need to change direction and drop
           if (moveDirection === 1 && rightMost + MOVE_SPEED >= RIGHT_BOUNDARY) {
             newDirection = -1;
             shouldDrop = true;
@@ -309,22 +298,18 @@ function Game({ gameState, gameActions }) {
             shouldDrop = true;
           }
           
-          // Update direction state
           if (newDirection !== moveDirection) {
             setMoveDirection(newDirection);
           }
           
-          // Move all enemies
           const newEnemies = prev.map(e => ({
             ...e,
             x: shouldDrop ? e.x : e.x + (MOVE_SPEED * moveDirection),
             y: shouldDrop ? e.y - DROP_AMOUNT : e.y
           }));
           
-          // Play step sound
           playSound('step');
           
-          // Check if any enemy reached the player level (game over)
           if (newEnemies.some(e => e.y <= 2)) {
             setGameOver(true);
             playSound('gameOver');
@@ -334,28 +319,27 @@ function Game({ gameState, gameActions }) {
         });
       }
 
-      // Move player bullets
+      // Move player bullets UP
       setBullets(prev => 
         prev
-          .map(b => ({ ...b, y: b.y + 0.5 }))  // Bullets go UP
-          .filter(b => b.y < 20)
+          .map(b => ({ ...b, y: b.y + 0.5 }))
+          .filter(b => b.y < 25)
       );
 
-      // Move enemy bullets
+      // Move enemy bullets DOWN
       setEnemyBullets(prev =>
         prev
-          .map(b => ({ ...b, y: b.y - 0.3 }))  // Enemy bullets go DOWN
+          .map(b => ({ ...b, y: b.y - 0.3 }))
           .filter(b => b.y > -2)
       );
 
-      // Enemy shooting
+      // Enemy shooting (bottom enemies only)
       if (Math.random() < 0.015) {
         setEnemies(prev => {
           if (prev.length === 0) return prev;
-          // Only bottom enemies in each column can shoot
           const columns = {};
           prev.forEach(e => {
-            const col = Math.round(e.x * 10);  // Group by x position
+            const col = Math.round(e.x * 10);
             if (!columns[col] || e.y < columns[col].y) {
               columns[col] = e;
             }
@@ -366,7 +350,7 @@ function Game({ gameState, gameActions }) {
             id: Date.now(),
             x: shooter.x,
             y: shooter.y - 1,
-            z: shooter.z
+            z: 0
           }]);
           return prev;
         });
@@ -437,7 +421,7 @@ function Game({ gameState, gameActions }) {
     return () => clearInterval(gameLoop);
   }, [gameOver, paused, playSound, highScore, moveDirection, enemies.length, setGameOver, setScore, setLives, setHighScore]);
 
-  // Keyboard controls
+  // Keyboard controls with wider limits
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (gameOver) return;
@@ -445,11 +429,11 @@ function Game({ gameState, gameActions }) {
       switch(e.key) {
         case 'ArrowLeft':
         case 'a':
-          setPlayerX(x => Math.max(x - 0.8, -14));
+          setPlayerX(x => Math.max(x - 0.8, -PLAYER_LIMIT));
           break;
         case 'ArrowRight':
         case 'd':
-          setPlayerX(x => Math.min(x + 0.8, 14));
+          setPlayerX(x => Math.min(x + 0.8, PLAYER_LIMIT));
           break;
         case ' ':
           e.preventDefault();
@@ -468,16 +452,16 @@ function Game({ gameState, gameActions }) {
       <pointLight position={[0, 20, 10]} intensity={1.5} />
       <directionalLight position={[10, 20, 10]} intensity={1} />
       
-      <Road />
-      <Player position={[playerX, 0, 6]} />
+      {/* No road - just space background */}
+      <Player position={[playerX, 0, 0]} />
       <Enemies enemies={enemies} />
       
       {bullets.map(bullet => (
-        <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z || -5]} isEnemy={false} />
+        <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z]} isEnemy={false} />
       ))}
       
       {enemyBullets.map(bullet => (
-        <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z || -5]} isEnemy={true} />
+        <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z]} isEnemy={true} />
       ))}
     </>
   );
@@ -583,8 +567,8 @@ export default function App() {
       }}>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.8, -14)); }}
-            onMouseDown={() => setPlayerX(x => Math.max(x - 0.8, -14))}
+            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.8, -20)); }}
+            onMouseDown={() => setPlayerX(x => Math.max(x - 0.8, -20))}
             style={{
               width: '70px',
               height: '70px',
@@ -598,8 +582,8 @@ export default function App() {
             }}
           >◀</button>
           <button
-            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.8, 14)); }}
-            onMouseDown={() => setPlayerX(x => Math.min(x + 0.8, 14))}
+            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.8, 20)); }}
+            onMouseDown={() => setPlayerX(x => Math.min(x + 0.8, 20))}
             style={{
               width: '70px',
               height: '70px',
@@ -630,7 +614,8 @@ export default function App() {
         >🔥</button>
       </div>
 
-      <Canvas camera={{ position: [0, 8, 18], fov: 60 }}>
+      {/* Wider camera view */}
+      <Canvas camera={{ position: [0, 12, 30], fov: 50 }}>
         <Suspense fallback={null}>
           <Game gameState={gameState} gameActions={gameActions} />
         </Suspense>
