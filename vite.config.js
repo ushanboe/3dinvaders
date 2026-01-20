@@ -2,8 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
-  base: '/3dinvaders/',
+export default defineConfig(({ command }) => ({
+  // Use '/3dinvaders/' only for production build, '/' for dev
+  base: command === 'build' ? '/3dinvaders/' : '/',
   plugins: [
     react(),
     VitePWA({
@@ -32,4 +33,4 @@ export default defineConfig({
       }
     })
   ]
-});
+}));
