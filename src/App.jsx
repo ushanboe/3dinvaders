@@ -1,7 +1,8 @@
-import { Canvas } from '@react-three/fiber';
-import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
-import { useGLTF, useAnimations, OrbitControls } from '@react-three/drei';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useGLTF, useAnimations } from '@react-three/drei';
 import * as THREE from 'three';
+import { SkeletonUtils } from 'three-stdlib';
 
 // Sound effects using Web Audio API
 const useSound = () => {
@@ -64,33 +65,45 @@ const useSound = () => {
   return playSound;
 };
 
-// Animated Enemy Model Component
-function EnemyModel({ position, onClick }) {
+// Animated Enemy Model Component - Fixed for proper cloning with animations
+function EnemyModel({ position }) {
   const group = useRef();
   const { scene, animations } = useGLTF('/3dinvaders/enemy.glb');
-  const { actions } = useAnimations(animations, group);
   
+  // Clone the scene properly using SkeletonUtils for skinned meshes
+  const clonedScene = useMemo(() => {
+    const clone = SkeletonUtils.clone(scene);
+    clone.traverse((child) => {
+      if (child.isMesh) {
+        child.material = child.material.clone();
+      }
+    });
+    return clone;
+  }, [scene]);
+  
+  // Create animation mixer for this specific clone
+  const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
+  
+  // Play animation
   useEffect(() => {
-    // Clone the scene for each instance
-    if (group.current) {
-      group.current.traverse((child) => {
-        if (child.isMesh) {
-          child.material = child.material.clone();
-        }
-      });
+    if (animations.length > 0) {
+      const clip = animations[0];
+      const action = mixer.clipAction(clip);
+      action.play();
+      
+      return () => {
+        action.stop();
+      };
     }
-    
-    // Play the animation
-    const actionName = Object.keys(actions)[0];
-    if (actionName && actions[actionName]) {
-      actions[actionName].reset().play();
-    }
-  }, [actions]);
-
-  const clonedScene = scene.clone();
+  }, [animations, mixer]);
+  
+  // Update animation mixer each frame
+  useFrame((state, delta) => {
+    mixer.update(delta);
+  });
   
   return (
-    <group ref={group} position={position} onClick={onClick}>
+    <group ref={group} position={position}>
       <primitive 
         object={clonedScene} 
         scale={[0.02, 0.02, 0.02]} 
@@ -100,10 +113,10 @@ function EnemyModel({ position, onClick }) {
   );
 }
 
-// Fallback cube enemy (in case model fails to load)
-function CubeEnemy({ position, color, onClick }) {
+// Fallback cube enemy
+function CubeEnemy({ position, color }) {
   return (
-    <mesh position={position} onClick={onClick}>
+    <mesh position={position}>
       <boxGeometry args={[0.8, 0.8, 0.8]} />
       <meshStandardMaterial color={color} />
     </mesh>
@@ -151,19 +164,10 @@ function Road() {
 }
 
 // Main game component
-function Game() {
-  const [playerX, setPlayerX] = useState(0);
+function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver, setGameOver, paused, highScore, setHighScore }) {
   const [enemies, setEnemies] = useState([]);
   const [bullets, setBullets] = useState([]);
   const [enemyBullets, setEnemyBullets] = useState([]);
-  const [score, setScore] = useState(0);
-  const [lives, setLives] = useState(3);
-  const [gameOver, setGameOver] = useState(false);
-  const [paused, setPaused] = useState(false);
-  const [highScore, setHighScore] = useState(() => {
-    return parseInt(localStorage.getItem('highScore') || '0');
-  });
-  const [useModel, setUseModel] = useState(true);
   
   const playSound = useSound();
   const lastShotTime = useRef(0);
@@ -200,7 +204,6 @@ function Game() {
           z: e.z + 0.02
         }));
         
-        // Check if enemies reached player
         if (newEnemies.some(e => e.z > 5)) {
           setGameOver(true);
           playSound('gameOver');
@@ -301,7 +304,7 @@ function Game() {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameOver, paused, playerX, playSound, highScore]);
+  }, [gameOver, paused, playerX, playSound, highScore, setGameOver, setScore, setLives, setHighScore]);
 
   // Keyboard controls
   useEffect(() => {
@@ -322,14 +325,13 @@ function Game() {
           shoot();
           break;
         case 'p':
-          setPaused(p => !p);
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameOver]);
+  }, [gameOver, setPlayerX]);
 
   const shoot = () => {
     const now = Date.now();
@@ -345,28 +347,10 @@ function Game() {
     playSound('shoot');
   };
 
-  const restart = () => {
-    setGameOver(false);
-    setScore(0);
-    setLives(3);
-    setPlayerX(0);
-    setBullets([]);
-    setEnemyBullets([]);
-    
-    const initialEnemies = [];
-    for (let row = 0; row < 5; row++) {
-      for (let col = 0; col < 12; col++) {
-        initialEnemies.push({
-          id: `${row}-${col}`,
-          x: (col - 6 + 0.5) * 1.2,
-          y: 2 + row * 0.5,
-          z: -15 + row * 2,
-          row: row
-        });
-      }
-    }
-    setEnemies(initialEnemies);
-  };
+  // Expose shoot function globally for touch controls
+  useEffect(() => {
+    window.gameShoot = shoot;
+  }, [playerX]);
 
   const rowColors = ['#ff0066', '#ff6600', '#ffff00', '#00ff66', '#0066ff'];
 
@@ -383,18 +367,10 @@ function Game() {
       {/* Enemies */}
       <Suspense fallback={null}>
         {enemies.map(enemy => (
-          useModel ? (
-            <EnemyModel
-              key={enemy.id}
-              position={[enemy.x, enemy.y, enemy.z]}
-            />
-          ) : (
-            <CubeEnemy
-              key={enemy.id}
-              position={[enemy.x, enemy.y, enemy.z]}
-              color={rowColors[enemy.row]}
-            />
-          )
+          <EnemyModel
+            key={enemy.id}
+            position={[enemy.x, enemy.y, enemy.z]}
+          />
         ))}
       </Suspense>
       
@@ -413,16 +389,21 @@ function Game() {
 
 // Main App
 export default function App() {
-  const [gameState, setGameState] = useState('menu');
+  const [playerX, setPlayerX] = useState(0);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
+  const [gameOver, setGameOver] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [highScore, setHighScore] = useState(() => {
     return parseInt(localStorage.getItem('highScore') || '0');
   });
-  const [paused, setPaused] = useState(false);
+
+  const restart = () => {
+    window.location.reload();
+  };
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#000' }}>
+    <div style={{ width: '100vw', height: '100vh', background: '#000', touchAction: 'none' }}>
       {/* HUD */}
       <div style={{
         position: 'absolute',
@@ -459,6 +440,39 @@ export default function App() {
         {paused ? '▶️' : '⏸️'}
       </button>
 
+      {/* Game Over overlay */}
+      {gameOver && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0,0,0,0.8)',
+          zIndex: 200
+        }}>
+          <h1 style={{ color: '#f00', fontFamily: 'monospace', fontSize: '48px' }}>GAME OVER</h1>
+          <p style={{ color: '#0f0', fontFamily: 'monospace', fontSize: '24px' }}>Score: {score}</p>
+          <button
+            onClick={restart}
+            style={{
+              marginTop: '20px',
+              padding: '15px 30px',
+              fontSize: '20px',
+              fontFamily: 'monospace',
+              background: '#0f0',
+              border: 'none',
+              color: '#000',
+              cursor: 'pointer'
+            }}
+          >RESTART</button>
+        </div>
+      )}
+
       {/* Touch controls */}
       <div style={{
         position: 'absolute',
@@ -472,8 +486,8 @@ export default function App() {
       }}>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            onTouchStart={() => setPlayerX(x => Math.max(x - 0.5, -6))}
-            onClick={() => setPlayerX(x => Math.max(x - 0.5, -6))}
+            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.5, -6)); }}
+            onMouseDown={() => setPlayerX(x => Math.max(x - 0.5, -6))}
             style={{
               width: '70px',
               height: '70px',
@@ -482,12 +496,13 @@ export default function App() {
               border: '2px solid #0f0',
               color: '#0f0',
               borderRadius: '10px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              userSelect: 'none'
             }}
           >◀</button>
           <button
-            onTouchStart={() => setPlayerX(x => Math.min(x + 0.5, 6))}
-            onClick={() => setPlayerX(x => Math.min(x + 0.5, 6))}
+            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.5, 6)); }}
+            onMouseDown={() => setPlayerX(x => Math.min(x + 0.5, 6))}
             style={{
               width: '70px',
               height: '70px',
@@ -496,19 +511,14 @@ export default function App() {
               border: '2px solid #0f0',
               color: '#0f0',
               borderRadius: '10px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              userSelect: 'none'
             }}
           >▶</button>
         </div>
         <button
-          onTouchStart={() => {
-            const event = new KeyboardEvent('keydown', { key: ' ' });
-            window.dispatchEvent(event);
-          }}
-          onClick={() => {
-            const event = new KeyboardEvent('keydown', { key: ' ' });
-            window.dispatchEvent(event);
-          }}
+          onTouchStart={(e) => { e.preventDefault(); if(window.gameShoot) window.gameShoot(); }}
+          onMouseDown={() => { if(window.gameShoot) window.gameShoot(); }}
           style={{
             width: '90px',
             height: '70px',
@@ -517,13 +527,26 @@ export default function App() {
             border: '2px solid #f00',
             color: '#f00',
             borderRadius: '10px',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            userSelect: 'none'
           }}
         >🔥</button>
       </div>
 
       <Canvas camera={{ position: [0, 5, 12], fov: 60 }}>
-        <Game />
+        <Game 
+          playerX={playerX}
+          setPlayerX={setPlayerX}
+          score={score}
+          setScore={setScore}
+          lives={lives}
+          setLives={setLives}
+          gameOver={gameOver}
+          setGameOver={setGameOver}
+          paused={paused}
+          highScore={highScore}
+          setHighScore={setHighScore}
+        />
       </Canvas>
     </div>
   );
