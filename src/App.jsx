@@ -5,7 +5,7 @@ import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 
 // Debug logger
-const DEBUG = true;
+const DEBUG = false;
 const log = (...args) => DEBUG && console.log('[DEBUG]', ...args);
 
 // Error boundary for catching render errors
@@ -111,26 +111,10 @@ function EnemyModel({ position, id }) {
   // Load the model
   const { scene, animations } = useGLTF('/3dinvaders/enemy.glb');
   
-  useEffect(() => {
-    log(`[EnemyModel ${id}] Model data:`, {
-      scene: scene ? 'exists' : 'missing',
-      sceneChildren: scene?.children?.length,
-      animations: animations?.length || 0,
-      animNames: animations?.map(a => a.name)
-    });
-  }, [scene, animations, id]);
-  
   // Clone the scene using SkeletonUtils for proper skinned mesh cloning
   const clone = useMemo(() => {
     try {
-      log(`[EnemyModel ${id}] Cloning scene...`);
       const cloned = SkeletonUtils.clone(scene);
-      
-      // Log bounding box to understand model size
-      const box = new THREE.Box3().setFromObject(cloned);
-      const size = box.getSize(new THREE.Vector3());
-      log(`[EnemyModel ${id}] Model size:`, size);
-      
       return cloned;
     } catch (err) {
       console.error(`[EnemyModel ${id}] Clone failed:`, err);
@@ -141,18 +125,13 @@ function EnemyModel({ position, id }) {
   
   // Setup animation
   useEffect(() => {
-    if (!clone) {
-      log(`[EnemyModel ${id}] No clone available for animation`);
-      return;
-    }
+    if (!clone) return;
     
     if (animations && animations.length > 0) {
-      log(`[EnemyModel ${id}] Setting up animation: ${animations[0].name}`);
       try {
         mixer.current = new THREE.AnimationMixer(clone);
         const action = mixer.current.clipAction(animations[0]);
         action.play();
-        log(`[EnemyModel ${id}] Animation playing!`);
       } catch (err) {
         console.error(`[EnemyModel ${id}] Animation setup failed:`, err);
       }
@@ -162,8 +141,6 @@ function EnemyModel({ position, id }) {
           mixer.current.stopAllAction();
         }
       };
-    } else {
-      log(`[EnemyModel ${id}] No animations found`);
     }
   }, [clone, animations, id]);
   
@@ -179,10 +156,10 @@ function EnemyModel({ position, id }) {
     return <CubeEnemy position={position} color="#ff00ff" />;
   }
   
-  // Increased scale from 0.02 to 0.5 to make model visible
+  // Scale 1.5 (3x larger than 0.5)
   return (
     <group ref={group} position={position}>
-      <primitive object={clone} scale={0.5} rotation={[0, Math.PI, 0]} />
+      <primitive object={clone} scale={1.5} rotation={[0, Math.PI, 0]} />
     </group>
   );
 }
@@ -221,7 +198,7 @@ function Bullet({ position, isEnemy }) {
 function Road() {
   return (
     <mesh rotation={[-Math.PI / 2.5, 0, 0]} position={[0, -2, 5]}>
-      <planeGeometry args={[20, 40]} />
+      <planeGeometry args={[30, 50]} />
       <meshStandardMaterial color="#1a1a2e" />
     </mesh>
   );
@@ -230,11 +207,6 @@ function Road() {
 // Enemies container - renders all enemies
 function Enemies({ enemies }) {
   const rowColors = ['#ff0066', '#ff6600', '#ffff00', '#00ff66', '#0066ff'];
-  
-  // Only log once per render cycle
-  useEffect(() => {
-    log('[Enemies] Total enemies:', enemies.length);
-  }, [enemies.length]);
   
   return (
     <>
@@ -254,35 +226,63 @@ function Enemies({ enemies }) {
 }
 
 // Main game component
-function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver, setGameOver, paused, highScore, setHighScore }) {
+function Game({ gameState, gameActions }) {
+  const { playerX, score, lives, gameOver, paused, highScore } = gameState;
+  const { setPlayerX, setScore, setLives, setGameOver, setHighScore } = gameActions;
+  
   const [enemies, setEnemies] = useState([]);
   const [bullets, setBullets] = useState([]);
   const [enemyBullets, setEnemyBullets] = useState([]);
   
   const playSound = useSound();
   const lastShotTime = useRef(0);
-
-  // Initialize enemies - reduced count for testing
+  const playerXRef = useRef(playerX);
+  
+  // Keep playerX ref updated
   useEffect(() => {
-    log('[Game] Initializing enemies...');
+    playerXRef.current = playerX;
+  }, [playerX]);
+
+  // Initialize enemies - 5 rows x 12 cols = 60 enemies
+  useEffect(() => {
     const initialEnemies = [];
-    const rows = 3;  // Reduced for testing
-    const cols = 5;  // Reduced for testing
+    const rows = 5;
+    const cols = 12;
     
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         initialEnemies.push({
           id: `${row}-${col}`,
-          x: (col - cols / 2 + 0.5) * 2.5,  // Wider spacing
-          y: 1 + row * 1.5,  // Adjusted height
-          z: -5 + row * 3,   // Closer to camera
+          x: (col - cols / 2 + 0.5) * 2.5,  // Wider spacing for larger models
+          y: 2 + row * 2,  // More vertical spacing
+          z: -20 + row * 3,  // Start further back
           row: row
         });
       }
     }
-    log('[Game] Created', initialEnemies.length, 'enemies');
     setEnemies(initialEnemies);
   }, []);
+
+  // Shoot function
+  const shoot = useCallback(() => {
+    const now = Date.now();
+    if (now - lastShotTime.current < 250) return;
+    lastShotTime.current = now;
+    
+    setBullets(prev => [...prev, {
+      id: Date.now(),
+      x: playerXRef.current,
+      y: 0.8,
+      z: 4
+    }]);
+    playSound('shoot');
+  }, [playSound]);
+
+  // Expose shoot function globally for touch controls
+  useEffect(() => {
+    window.gameShoot = shoot;
+    return () => { window.gameShoot = null; };
+  }, [shoot]);
 
   // Game loop
   useEffect(() => {
@@ -308,7 +308,7 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
       setBullets(prev => 
         prev
           .map(b => ({ ...b, z: b.z - 0.5, y: b.y + 0.1 }))
-          .filter(b => b.z > -20)
+          .filter(b => b.z > -25)
       );
 
       // Move enemy bullets
@@ -342,9 +342,9 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
           
           remainingBullets = remainingBullets.filter(bullet => {
             const hitEnemy = remainingEnemies.find(enemy => 
-              Math.abs(bullet.x - enemy.x) < 0.6 &&
-              Math.abs(bullet.z - enemy.z) < 1 &&
-              Math.abs(bullet.y - enemy.y) < 0.6
+              Math.abs(bullet.x - enemy.x) < 1.2 &&
+              Math.abs(bullet.z - enemy.z) < 1.5 &&
+              Math.abs(bullet.y - enemy.y) < 1.2
             );
             
             if (hitEnemy) {
@@ -371,8 +371,9 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
 
       // Collision detection - enemy bullets vs player
       setEnemyBullets(prev => {
+        const currentPlayerX = playerXRef.current;
         const hit = prev.find(b => 
-          Math.abs(b.x - playerX) < 0.8 &&
+          Math.abs(b.x - currentPlayerX) < 0.8 &&
           b.z > 4 &&
           b.y < 1
         );
@@ -396,7 +397,7 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameOver, paused, playerX, playSound, highScore, setGameOver, setScore, setLives, setHighScore]);
+  }, [gameOver, paused, playSound, highScore, setGameOver, setScore, setLives, setHighScore]);
 
   // Keyboard controls
   useEffect(() => {
@@ -406,11 +407,11 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
       switch(e.key) {
         case 'ArrowLeft':
         case 'a':
-          setPlayerX(x => Math.max(x - 0.5, -6));
+          setPlayerX(x => Math.max(x - 0.5, -12));
           break;
         case 'ArrowRight':
         case 'd':
-          setPlayerX(x => Math.min(x + 0.5, 6));
+          setPlayerX(x => Math.min(x + 0.5, 12));
           break;
         case ' ':
           e.preventDefault();
@@ -421,32 +422,13 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameOver, setPlayerX]);
-
-  const shoot = () => {
-    const now = Date.now();
-    if (now - lastShotTime.current < 250) return;
-    lastShotTime.current = now;
-    
-    setBullets(prev => [...prev, {
-      id: Date.now(),
-      x: playerX,
-      y: 0.8,
-      z: 4
-    }]);
-    playSound('shoot');
-  };
-
-  // Expose shoot function globally for touch controls
-  useEffect(() => {
-    window.gameShoot = shoot;
-  }, [playerX]);
+  }, [gameOver, setPlayerX, shoot]);
 
   return (
     <>
       <ambientLight intensity={0.8} />
-      <pointLight position={[0, 10, 5]} intensity={1.5} />
-      <directionalLight position={[5, 10, 5]} intensity={1} />
+      <pointLight position={[0, 15, 5]} intensity={1.5} />
+      <directionalLight position={[5, 15, 5]} intensity={1} />
       
       <Road />
       
@@ -483,18 +465,8 @@ export default function App() {
     window.location.reload();
   };
 
-  // Log on mount
-  useEffect(() => {
-    log('[App] Component mounted');
-    log('[App] Checking model URL...');
-    fetch('/3dinvaders/enemy.glb', { method: 'HEAD' })
-      .then(res => {
-        log('[App] Model fetch response:', res.status, res.ok ? 'OK' : 'FAILED');
-      })
-      .catch(err => {
-        console.error('[App] Model fetch error:', err);
-      });
-  }, []);
+  const gameState = { playerX, score, lives, gameOver, paused, highScore };
+  const gameActions = { setPlayerX, setScore, setLives, setGameOver, setHighScore };
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#000', touchAction: 'none' }}>
@@ -512,23 +484,6 @@ export default function App() {
         <div>SCORE: {score}</div>
         <div>HIGH: {highScore}</div>
         <div>LIVES: {'❤️'.repeat(lives)}</div>
-      </div>
-
-      {/* Debug info */}
-      <div style={{
-        position: 'absolute',
-        top: 10,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        color: '#ff0',
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        zIndex: 100,
-        background: 'rgba(0,0,0,0.7)',
-        padding: '5px 10px',
-        borderRadius: '5px'
-      }}>
-        DEBUG v2 - Check Console (F12)
       </div>
 
       {/* Pause button */}
@@ -597,8 +552,8 @@ export default function App() {
       }}>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.5, -6)); }}
-            onMouseDown={() => setPlayerX(x => Math.max(x - 0.5, -6))}
+            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.5, -12)); }}
+            onMouseDown={() => setPlayerX(x => Math.max(x - 0.5, -12))}
             style={{
               width: '70px',
               height: '70px',
@@ -612,8 +567,8 @@ export default function App() {
             }}
           >◀</button>
           <button
-            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.5, 6)); }}
-            onMouseDown={() => setPlayerX(x => Math.min(x + 0.5, 6))}
+            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.5, 12)); }}
+            onMouseDown={() => setPlayerX(x => Math.min(x + 0.5, 12))}
             style={{
               width: '70px',
               height: '70px',
@@ -644,21 +599,9 @@ export default function App() {
         >🔥</button>
       </div>
 
-      <Canvas camera={{ position: [0, 8, 15], fov: 60 }}>
+      <Canvas camera={{ position: [0, 12, 20], fov: 60 }}>
         <Suspense fallback={null}>
-          <Game 
-            playerX={playerX}
-            setPlayerX={setPlayerX}
-            score={score}
-            setScore={setScore}
-            lives={lives}
-            setLives={setLives}
-            gameOver={gameOver}
-            setGameOver={setGameOver}
-            paused={paused}
-            highScore={highScore}
-            setHighScore={setHighScore}
-          />
+          <Game gameState={gameState} gameActions={gameActions} />
         </Suspense>
       </Canvas>
     </div>
@@ -666,5 +609,4 @@ export default function App() {
 }
 
 // Preload the model
-log('[Preload] Preloading enemy.glb...');
 useGLTF.preload('/3dinvaders/enemy.glb');
