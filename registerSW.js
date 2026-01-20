@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/3dinvaders/sw.js', { scope: '/3dinvaders/' })})}
