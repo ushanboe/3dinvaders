@@ -4,23 +4,15 @@ import { useGLTF } from '@react-three/drei';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 
-// Debug logger
-const DEBUG = false;
-const log = (...args) => DEBUG && console.log('[DEBUG]', ...args);
-
 // Error boundary for catching render errors
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false };
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+    return { hasError: true };
   }
 
   render() {
@@ -96,67 +88,53 @@ const useSound = () => {
 function CubeEnemy({ position, color }) {
   return (
     <mesh position={position}>
-      <boxGeometry args={[0.8, 0.8, 0.8]} />
+      <boxGeometry args={[1.5, 1.5, 1.5]} />
       <meshStandardMaterial color={color} />
     </mesh>
   );
 }
 
-// Single animated enemy model - cloned properly
+// Single animated enemy model
 function EnemyModel({ position, id }) {
   const group = useRef();
   const mixer = useRef();
   const [error, setError] = useState(false);
   
-  // Load the model
   const { scene, animations } = useGLTF('/3dinvaders/enemy.glb');
   
-  // Clone the scene using SkeletonUtils for proper skinned mesh cloning
   const clone = useMemo(() => {
     try {
-      const cloned = SkeletonUtils.clone(scene);
-      return cloned;
+      return SkeletonUtils.clone(scene);
     } catch (err) {
-      console.error(`[EnemyModel ${id}] Clone failed:`, err);
       setError(true);
       return null;
     }
   }, [scene, id]);
   
-  // Setup animation
   useEffect(() => {
-    if (!clone) return;
+    if (!clone || !animations || animations.length === 0) return;
     
-    if (animations && animations.length > 0) {
-      try {
-        mixer.current = new THREE.AnimationMixer(clone);
-        const action = mixer.current.clipAction(animations[0]);
-        action.play();
-      } catch (err) {
-        console.error(`[EnemyModel ${id}] Animation setup failed:`, err);
-      }
-      
-      return () => {
-        if (mixer.current) {
-          mixer.current.stopAllAction();
-        }
-      };
+    try {
+      mixer.current = new THREE.AnimationMixer(clone);
+      const action = mixer.current.clipAction(animations[0]);
+      action.play();
+    } catch (err) {
+      console.error('Animation error:', err);
     }
-  }, [clone, animations, id]);
+    
+    return () => {
+      if (mixer.current) mixer.current.stopAllAction();
+    };
+  }, [clone, animations]);
   
-  // Update animation
   useFrame((state, delta) => {
-    if (mixer.current) {
-      mixer.current.update(delta);
-    }
+    if (mixer.current) mixer.current.update(delta);
   });
   
-  // If error or clone failed, show fallback
   if (error || !clone) {
     return <CubeEnemy position={position} color="#ff00ff" />;
   }
   
-  // Scale 1.5 (3x larger than 0.5)
   return (
     <group ref={group} position={position}>
       <primitive object={clone} scale={1.5} rotation={[0, Math.PI, 0]} />
@@ -169,11 +147,11 @@ function Player({ position }) {
   return (
     <group position={position}>
       <mesh position={[0, 0.3, 0]}>
-        <boxGeometry args={[1, 0.6, 0.6]} />
+        <boxGeometry args={[1.2, 0.6, 0.6]} />
         <meshStandardMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={0.3} />
       </mesh>
-      <mesh position={[0, 0.6, 0]}>
-        <cylinderGeometry args={[0.1, 0.1, 0.5, 8]} />
+      <mesh position={[0, 0.7, 0]}>
+        <cylinderGeometry args={[0.12, 0.12, 0.6, 8]} />
         <meshStandardMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={0.5} />
       </mesh>
     </group>
@@ -184,7 +162,7 @@ function Player({ position }) {
 function Bullet({ position, isEnemy }) {
   return (
     <mesh position={position}>
-      <sphereGeometry args={[0.15, 8, 8]} />
+      <sphereGeometry args={[0.2, 8, 8]} />
       <meshStandardMaterial 
         color={isEnemy ? "#ff0000" : "#00ffff"} 
         emissive={isEnemy ? "#ff0000" : "#00ffff"} 
@@ -197,14 +175,14 @@ function Bullet({ position, isEnemy }) {
 // Road/ground
 function Road() {
   return (
-    <mesh rotation={[-Math.PI / 2.5, 0, 0]} position={[0, -2, 5]}>
-      <planeGeometry args={[30, 50]} />
+    <mesh rotation={[-Math.PI / 2.5, 0, 0]} position={[0, -2, 0]}>
+      <planeGeometry args={[50, 60]} />
       <meshStandardMaterial color="#1a1a2e" />
     </mesh>
   );
 }
 
-// Enemies container - renders all enemies
+// Enemies container
 function Enemies({ enemies }) {
   const rowColors = ['#ff0066', '#ff6600', '#ffff00', '#00ff66', '#0066ff'];
   
@@ -238,24 +216,26 @@ function Game({ gameState, gameActions }) {
   const lastShotTime = useRef(0);
   const playerXRef = useRef(playerX);
   
-  // Keep playerX ref updated
   useEffect(() => {
     playerXRef.current = playerX;
   }, [playerX]);
 
-  // Initialize enemies - 5 rows x 12 cols = 60 enemies
+  // Initialize enemies - 5 rows x 8 cols = 40 enemies with better spacing
   useEffect(() => {
     const initialEnemies = [];
     const rows = 5;
-    const cols = 12;
+    const cols = 8;  // Reduced from 12 to 8
+    const spacingX = 4;  // Increased from 2.5 to 4
+    const spacingY = 2.5;  // Vertical spacing between rows
+    const spacingZ = 4;  // Depth spacing between rows
     
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         initialEnemies.push({
           id: `${row}-${col}`,
-          x: (col - cols / 2 + 0.5) * 2.5,  // Wider spacing for larger models
-          y: 2 + row * 2,  // More vertical spacing
-          z: -20 + row * 3,  // Start further back
+          x: (col - cols / 2 + 0.5) * spacingX,
+          y: 2 + row * spacingY,
+          z: -25 + row * spacingZ,
           row: row
         });
       }
@@ -272,13 +252,12 @@ function Game({ gameState, gameActions }) {
     setBullets(prev => [...prev, {
       id: Date.now(),
       x: playerXRef.current,
-      y: 0.8,
+      y: 1,
       z: 4
     }]);
     playSound('shoot');
   }, [playSound]);
 
-  // Expose shoot function globally for touch controls
   useEffect(() => {
     window.gameShoot = shoot;
     return () => { window.gameShoot = null; };
@@ -293,7 +272,7 @@ function Game({ gameState, gameActions }) {
       setEnemies(prev => {
         const newEnemies = prev.map(e => ({
           ...e,
-          z: e.z + 0.02
+          z: e.z + 0.03
         }));
         
         if (newEnemies.some(e => e.z > 5)) {
@@ -307,19 +286,19 @@ function Game({ gameState, gameActions }) {
       // Move player bullets
       setBullets(prev => 
         prev
-          .map(b => ({ ...b, z: b.z - 0.5, y: b.y + 0.1 }))
-          .filter(b => b.z > -25)
+          .map(b => ({ ...b, z: b.z - 0.6, y: b.y + 0.1 }))
+          .filter(b => b.z > -30)
       );
 
       // Move enemy bullets
       setEnemyBullets(prev =>
         prev
-          .map(b => ({ ...b, z: b.z + 0.3, y: b.y - 0.05 }))
-          .filter(b => b.z < 10)
+          .map(b => ({ ...b, z: b.z + 0.35, y: b.y - 0.05 }))
+          .filter(b => b.z < 12)
       );
 
       // Enemy shooting
-      if (Math.random() < 0.02) {
+      if (Math.random() < 0.025) {
         setEnemies(prev => {
           if (prev.length === 0) return prev;
           const shooter = prev[Math.floor(Math.random() * prev.length)];
@@ -342,9 +321,9 @@ function Game({ gameState, gameActions }) {
           
           remainingBullets = remainingBullets.filter(bullet => {
             const hitEnemy = remainingEnemies.find(enemy => 
-              Math.abs(bullet.x - enemy.x) < 1.2 &&
-              Math.abs(bullet.z - enemy.z) < 1.5 &&
-              Math.abs(bullet.y - enemy.y) < 1.2
+              Math.abs(bullet.x - enemy.x) < 1.5 &&
+              Math.abs(bullet.z - enemy.z) < 2 &&
+              Math.abs(bullet.y - enemy.y) < 1.5
             );
             
             if (hitEnemy) {
@@ -373,9 +352,9 @@ function Game({ gameState, gameActions }) {
       setEnemyBullets(prev => {
         const currentPlayerX = playerXRef.current;
         const hit = prev.find(b => 
-          Math.abs(b.x - currentPlayerX) < 0.8 &&
+          Math.abs(b.x - currentPlayerX) < 1 &&
           b.z > 4 &&
-          b.y < 1
+          b.y < 1.5
         );
         
         if (hit) {
@@ -407,11 +386,11 @@ function Game({ gameState, gameActions }) {
       switch(e.key) {
         case 'ArrowLeft':
         case 'a':
-          setPlayerX(x => Math.max(x - 0.5, -12));
+          setPlayerX(x => Math.max(x - 0.8, -14));
           break;
         case 'ArrowRight':
         case 'd':
-          setPlayerX(x => Math.min(x + 0.5, 12));
+          setPlayerX(x => Math.min(x + 0.8, 14));
           break;
         case ' ':
           e.preventDefault();
@@ -426,23 +405,18 @@ function Game({ gameState, gameActions }) {
 
   return (
     <>
-      <ambientLight intensity={0.8} />
-      <pointLight position={[0, 15, 5]} intensity={1.5} />
-      <directionalLight position={[5, 15, 5]} intensity={1} />
+      <ambientLight intensity={0.7} />
+      <pointLight position={[0, 20, 10]} intensity={1.5} />
+      <directionalLight position={[10, 20, 10]} intensity={1} />
       
       <Road />
-      
-      <Player position={[playerX, 0, 5]} />
-      
-      {/* Enemies */}
+      <Player position={[playerX, 0, 6]} />
       <Enemies enemies={enemies} />
       
-      {/* Player bullets */}
       {bullets.map(bullet => (
         <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z]} isEnemy={false} />
       ))}
       
-      {/* Enemy bullets */}
       {enemyBullets.map(bullet => (
         <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z]} isEnemy={true} />
       ))}
@@ -461,9 +435,7 @@ export default function App() {
     return parseInt(localStorage.getItem('highScore') || '0');
   });
 
-  const restart = () => {
-    window.location.reload();
-  };
+  const restart = () => window.location.reload();
 
   const gameState = { playerX, score, lives, gameOver, paused, highScore };
   const gameActions = { setPlayerX, setScore, setLives, setGameOver, setHighScore };
@@ -552,8 +524,8 @@ export default function App() {
       }}>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.5, -12)); }}
-            onMouseDown={() => setPlayerX(x => Math.max(x - 0.5, -12))}
+            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.8, -14)); }}
+            onMouseDown={() => setPlayerX(x => Math.max(x - 0.8, -14))}
             style={{
               width: '70px',
               height: '70px',
@@ -567,8 +539,8 @@ export default function App() {
             }}
           >◀</button>
           <button
-            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.5, 12)); }}
-            onMouseDown={() => setPlayerX(x => Math.min(x + 0.5, 12))}
+            onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.8, 14)); }}
+            onMouseDown={() => setPlayerX(x => Math.min(x + 0.8, 14))}
             style={{
               width: '70px',
               height: '70px',
@@ -599,7 +571,7 @@ export default function App() {
         >🔥</button>
       </div>
 
-      <Canvas camera={{ position: [0, 12, 20], fov: 60 }}>
+      <Canvas camera={{ position: [0, 15, 25], fov: 55 }}>
         <Suspense fallback={null}>
           <Game gameState={gameState} gameActions={gameActions} />
         </Suspense>
@@ -608,5 +580,4 @@ export default function App() {
   );
 }
 
-// Preload the model
 useGLTF.preload('/3dinvaders/enemy.glb');
