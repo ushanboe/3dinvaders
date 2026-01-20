@@ -610,8 +610,8 @@ function getLevelSpeed(level) {
 
 // Main game component
 function Game({ gameState, gameActions }) {
-  const { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp } = gameState;
-  const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp } = gameActions;
+  const { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator } = gameState;
+  const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator } = gameActions;
   
   const [enemies, setEnemies] = useState([]);
   const [bullets, setBullets] = useState([]);
@@ -623,7 +623,7 @@ function Game({ gameState, gameActions }) {
   // Mystery invader state
   const [mystery, setMystery] = useState(null);
   const [mysterySpawned, setMysterySpawned] = useState(false);
-  const [showMysteryIndicator, setShowMysteryIndicator] = useState(false);
+  // showMysteryIndicator moved to App component
   
   // Dive attack state
   const [divingEnemies, setDivingEnemies] = useState([]);
@@ -1366,6 +1366,7 @@ export default function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [level, setLevel] = useState(1);
   const [showLevelUp, setShowLevelUp] = useState(false);
+  const [showMysteryIndicator, setShowMysteryIndicator] = useState(false);
   const [highScore, setHighScore] = useState(() => {
     return parseInt(localStorage.getItem('highScore') || '0');
   });
@@ -1374,13 +1375,11 @@ export default function App() {
   
   const startGame = () => {
     console.log('START GAME CLICKED!');
-    alert('Starting game...');
     setGameStarted(true);
-    console.log('gameStarted set to true');
   };
 
-  const gameState = { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp };
-  const gameActions = { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp };
+  const gameState = { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator };
+  const gameActions = { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator };
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: 'linear-gradient(to bottom, #000011, #000033)', touchAction: 'none' }}>
