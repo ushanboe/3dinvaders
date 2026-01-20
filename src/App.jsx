@@ -1,8 +1,8 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useGLTF, useAnimations } from '@react-three/drei';
+import { useGLTF } from '@react-three/drei';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
-import { SkeletonUtils } from 'three-stdlib';
 
 // Sound effects using Web Audio API
 const useSound = () => {
@@ -65,50 +65,43 @@ const useSound = () => {
   return playSound;
 };
 
-// Animated Enemy Model Component - Fixed for proper cloning with animations
+// Single animated enemy model - cloned properly
 function EnemyModel({ position }) {
   const group = useRef();
   const { scene, animations } = useGLTF('/3dinvaders/enemy.glb');
+  const mixer = useRef();
   
-  // Clone the scene properly using SkeletonUtils for skinned meshes
-  const clonedScene = useMemo(() => {
-    const clone = SkeletonUtils.clone(scene);
-    clone.traverse((child) => {
-      if (child.isMesh) {
-        child.material = child.material.clone();
-      }
-    });
-    return clone;
+  // Clone the scene using SkeletonUtils for proper skinned mesh cloning
+  const clone = useMemo(() => {
+    return SkeletonUtils.clone(scene);
   }, [scene]);
   
-  // Create animation mixer for this specific clone
-  const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
-  
-  // Play animation
+  // Setup animation
   useEffect(() => {
-    if (animations.length > 0) {
-      const clip = animations[0];
-      const action = mixer.clipAction(clip);
+    if (clone && animations.length > 0) {
+      mixer.current = new THREE.AnimationMixer(clone);
+      const action = mixer.current.clipAction(animations[0]);
       action.play();
       
       return () => {
-        action.stop();
+        if (mixer.current) {
+          mixer.current.stopAllAction();
+          mixer.current.uncacheRoot(clone);
+        }
       };
     }
-  }, [animations, mixer]);
+  }, [clone, animations]);
   
-  // Update animation mixer each frame
+  // Update animation
   useFrame((state, delta) => {
-    mixer.update(delta);
+    if (mixer.current) {
+      mixer.current.update(delta);
+    }
   });
   
   return (
     <group ref={group} position={position}>
-      <primitive 
-        object={clonedScene} 
-        scale={[0.02, 0.02, 0.02]} 
-        rotation={[0, Math.PI, 0]}
-      />
+      <primitive object={clone} scale={0.02} rotation={[0, Math.PI, 0]} />
     </group>
   );
 }
@@ -160,6 +153,23 @@ function Road() {
       <planeGeometry args={[20, 40]} />
       <meshStandardMaterial color="#1a1a2e" />
     </mesh>
+  );
+}
+
+// Enemies container - renders all enemies
+function Enemies({ enemies }) {
+  const rowColors = ['#ff0066', '#ff6600', '#ffff00', '#00ff66', '#0066ff'];
+  
+  return (
+    <>
+      {enemies.map(enemy => (
+        <Suspense key={enemy.id} fallback={
+          <CubeEnemy position={[enemy.x, enemy.y, enemy.z]} color={rowColors[enemy.row]} />
+        }>
+          <EnemyModel position={[enemy.x, enemy.y, enemy.z]} />
+        </Suspense>
+      ))}
+    </>
   );
 }
 
@@ -324,8 +334,6 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
           e.preventDefault();
           shoot();
           break;
-        case 'p':
-          break;
       }
     };
 
@@ -352,27 +360,18 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
     window.gameShoot = shoot;
   }, [playerX]);
 
-  const rowColors = ['#ff0066', '#ff6600', '#ffff00', '#00ff66', '#0066ff'];
-
   return (
     <>
-      <ambientLight intensity={0.4} />
+      <ambientLight intensity={0.6} />
       <pointLight position={[0, 10, 5]} intensity={1} />
-      <directionalLight position={[5, 10, 5]} intensity={0.5} />
+      <directionalLight position={[5, 10, 5]} intensity={0.8} />
       
       <Road />
       
       <Player position={[playerX, 0, 5]} />
       
       {/* Enemies */}
-      <Suspense fallback={null}>
-        {enemies.map(enemy => (
-          <EnemyModel
-            key={enemy.id}
-            position={[enemy.x, enemy.y, enemy.z]}
-          />
-        ))}
-      </Suspense>
+      <Enemies enemies={enemies} />
       
       {/* Player bullets */}
       {bullets.map(bullet => (
@@ -534,19 +533,21 @@ export default function App() {
       </div>
 
       <Canvas camera={{ position: [0, 5, 12], fov: 60 }}>
-        <Game 
-          playerX={playerX}
-          setPlayerX={setPlayerX}
-          score={score}
-          setScore={setScore}
-          lives={lives}
-          setLives={setLives}
-          gameOver={gameOver}
-          setGameOver={setGameOver}
-          paused={paused}
-          highScore={highScore}
-          setHighScore={setHighScore}
-        />
+        <Suspense fallback={null}>
+          <Game 
+            playerX={playerX}
+            setPlayerX={setPlayerX}
+            score={score}
+            setScore={setScore}
+            lives={lives}
+            setLives={setLives}
+            gameOver={gameOver}
+            setGameOver={setGameOver}
+            paused={paused}
+            highScore={highScore}
+            setHighScore={setHighScore}
+          />
+        </Suspense>
       </Canvas>
     </div>
   );
