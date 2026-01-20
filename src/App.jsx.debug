@@ -1,0 +1,58 @@
+// Replace EnemySprite with this debug version:
+
+// Enemy sprite using PNG texture with fallback
+function EnemySprite({ position, row }) {
+  const [texture, setTexture] = useState(null);
+  const [error, setError] = useState(false);
+  
+  const BASE = import.meta.env.BASE_URL || '/';
+  const textureFiles = [
+    `${BASE}five.png`,
+    `${BASE}four.png`,
+    `${BASE}three.png`,
+    `${BASE}two.png`,
+    `${BASE}one.png`
+  ];
+  
+  const texturePath = textureFiles[row] || textureFiles[0];
+  
+  useEffect(() => {
+    console.log('Loading texture:', texturePath);
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      texturePath,
+      (loadedTexture) => {
+        console.log('Texture loaded successfully:', texturePath);
+        setTexture(loadedTexture);
+      },
+      undefined,
+      (err) => {
+        console.error('Failed to load texture:', texturePath, err);
+        setError(true);
+      }
+    );
+  }, [texturePath]);
+  
+  // Fallback to colored sphere if texture fails
+  if (error || !texture) {
+    const colors = ['#ff0000', '#ff6600', '#ffff00', '#00ff00', '#00ffff'];
+    return (
+      <mesh position={position}>
+        <sphereGeometry args={[0.8, 16, 16]} />
+        <meshStandardMaterial
+          color={colors[row] || colors[0]}
+          metalness={0.9}
+          roughness={0.1}
+          emissive={colors[row] || colors[0]}
+          emissiveIntensity={0.3}
+        />
+      </mesh>
+    );
+  }
+  
+  return (
+    <sprite position={position} scale={[2.2, 2.2, 1]}>
+      <spriteMaterial map={texture} transparent />
+    </sprite>
+  );
+}

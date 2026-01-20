@@ -1,0 +1,19 @@
+// At the top of the file, after imports, add texture preloading
+import React, { Suspense, useState, useEffect, useRef, useCallback } from 'react';
+import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber';
+import * as THREE from 'three';
+
+// Preload textures to catch errors early
+const BASE = import.meta.env.BASE_URL || '/';
+console.log('BASE_URL:', BASE);
+
+const TEXTURE_PATHS = {
+  five: `${BASE}five.png`,
+  four: `${BASE}four.png`,
+  three: `${BASE}three.png`,
+  two: `${BASE}two.png`,
+  one: `${BASE}one.png`,
+  mystery: `${BASE}mystery.png`
+};
+
+console.log('Texture paths:', TEXTURE_PATHS);

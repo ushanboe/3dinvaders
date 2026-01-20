@@ -201,18 +201,66 @@ function Explosion({ position, onComplete, color = '#ff6600' }) {
   );
 }
 
-// Enemy sprite using PNG texture
+// Enemy sprite using PNG texture with fallback
 function EnemySprite({ position, row }) {
+  const [texture, setTexture] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  const BASE = import.meta.env.BASE_URL || '/';
   const textureFiles = [
-    `${import.meta.env.BASE_URL}five.png`,
-    `${import.meta.env.BASE_URL}four.png`,
-    `${import.meta.env.BASE_URL}three.png`,
-    `${import.meta.env.BASE_URL}two.png`,
-    `${import.meta.env.BASE_URL}one.png`
+    `${BASE}five.png`,
+    `${BASE}four.png`,
+    `${BASE}three.png`,
+    `${BASE}two.png`,
+    `${BASE}one.png`
   ];
-  
-  const texture = useLoader(THREE.TextureLoader, textureFiles[row] || textureFiles[0]);
-  
+
+  const texturePath = textureFiles[row] || textureFiles[0];
+
+  useEffect(() => {
+    console.log('EnemySprite: Loading texture from:', texturePath);
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      texturePath,
+      (loadedTexture) => {
+        console.log('EnemySprite: Texture loaded OK:', texturePath);
+        setTexture(loadedTexture);
+      },
+      undefined,
+      (err) => {
+        console.error('EnemySprite: FAILED to load:', texturePath, err);
+        setLoadFailed(true);
+      }
+    );
+  }, [texturePath]);
+
+  // Fallback to colored sphere if texture fails or still loading
+  if (loadFailed) {
+    const colors = ['#ff0000', '#ff6600', '#ffff00', '#00ff00', '#00ffff'];
+    return (
+      <mesh position={position}>
+        <sphereGeometry args={[0.8, 16, 16]} />
+        <meshStandardMaterial
+          color={colors[row] || colors[0]}
+          metalness={0.9}
+          roughness={0.1}
+          emissive={colors[row] || colors[0]}
+          emissiveIntensity={0.3}
+        />
+      </mesh>
+    );
+  }
+
+  if (!texture) {
+    // Still loading - show placeholder
+    return (
+      <mesh position={position}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial color="#333333" wireframe />
+      </mesh>
+    );
+  }
+
   return (
     <sprite position={position} scale={[2.2, 2.2, 1]}>
       <spriteMaterial map={texture} transparent />
@@ -220,17 +268,52 @@ function EnemySprite({ position, row }) {
   );
 }
 
-// Mystery invader sprite
+// Mystery invader sprite with fallback
 function MysterySprite({ position }) {
-  const texture = useLoader(THREE.TextureLoader, `${import.meta.env.BASE_URL}mystery.png`);
-  
+  const [texture, setTexture] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  const BASE = import.meta.env.BASE_URL || '/';
+  const texturePath = `${BASE}mystery.png`;
+
+  useEffect(() => {
+    console.log('MysterySprite: Loading texture from:', texturePath);
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      texturePath,
+      (loadedTexture) => {
+        console.log('MysterySprite: Texture loaded OK');
+        setTexture(loadedTexture);
+      },
+      undefined,
+      (err) => {
+        console.error('MysterySprite: FAILED to load:', texturePath, err);
+        setLoadFailed(true);
+      }
+    );
+  }, [texturePath]);
+
+  if (loadFailed || !texture) {
+    return (
+      <mesh position={position}>
+        <sphereGeometry args={[1.2, 16, 16]} />
+        <meshStandardMaterial
+          color="#ff00ff"
+          metalness={0.9}
+          roughness={0.1}
+          emissive="#ff00ff"
+          emissiveIntensity={0.5}
+        />
+      </mesh>
+    );
+  }
+
   return (
     <sprite position={position} scale={[3, 3, 1]}>
       <spriteMaterial map={texture} transparent />
     </sprite>
   );
 }
-
 // Fallback cube enemy
 function CubeEnemy({ position, color }) {
   return (
