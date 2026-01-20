@@ -4,26 +4,22 @@ import { useGLTF } from '@react-three/drei';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 
-// Error boundary for catching render errors
+// Error boundary
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false };
   }
-
   static getDerivedStateFromError(error) {
     return { hasError: true };
   }
-
   render() {
-    if (this.state.hasError) {
-      return this.props.fallback || null;
-    }
+    if (this.state.hasError) return this.props.fallback || null;
     return this.props.children;
   }
 }
 
-// Sound effects using Web Audio API
+// Sound effects
 const useSound = () => {
   const audioContext = useRef(null);
   
@@ -78,6 +74,14 @@ const useSound = () => {
         oscillator.start(ctx.currentTime);
         oscillator.stop(ctx.currentTime + 0.5);
         break;
+      case 'step':  // Classic invader step sound
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(100 + Math.random() * 50, ctx.currentTime);
+        gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.05);
+        break;
     }
   }, []);
 
@@ -94,7 +98,7 @@ function CubeEnemy({ position, color }) {
   );
 }
 
-// Single animated enemy model
+// Animated enemy model
 function EnemyModel({ position, id }) {
   const group = useRef();
   const mixer = useRef();
@@ -113,7 +117,6 @@ function EnemyModel({ position, id }) {
   
   useEffect(() => {
     if (!clone || !animations || animations.length === 0) return;
-    
     try {
       mixer.current = new THREE.AnimationMixer(clone);
       const action = mixer.current.clipAction(animations[0]);
@@ -121,7 +124,6 @@ function EnemyModel({ position, id }) {
     } catch (err) {
       console.error('Animation error:', err);
     }
-    
     return () => {
       if (mixer.current) mixer.current.stopAllAction();
     };
@@ -142,7 +144,7 @@ function EnemyModel({ position, id }) {
   );
 }
 
-// Player laser cannon
+// Player
 function Player({ position }) {
   return (
     <group position={position}>
@@ -158,7 +160,7 @@ function Player({ position }) {
   );
 }
 
-// Laser bullet
+// Bullet
 function Bullet({ position, isEnemy }) {
   return (
     <mesh position={position}>
@@ -172,7 +174,7 @@ function Bullet({ position, isEnemy }) {
   );
 }
 
-// Road/ground
+// Road
 function Road() {
   return (
     <mesh rotation={[-Math.PI / 2.5, 0, 0]} position={[0, -2, 0]}>
@@ -212,32 +214,39 @@ function Game({ gameState, gameActions }) {
   const [bullets, setBullets] = useState([]);
   const [enemyBullets, setEnemyBullets] = useState([]);
   
+  // Classic Space Invaders movement state
+  const [moveDirection, setMoveDirection] = useState(1); // 1 = right, -1 = left
+  const moveStepRef = useRef(0);
+  
   const playSound = useSound();
   const lastShotTime = useRef(0);
   const playerXRef = useRef(playerX);
+  
+  // Boundaries for enemy movement
+  const LEFT_BOUNDARY = -14;
+  const RIGHT_BOUNDARY = 14;
+  const DROP_AMOUNT = 0.8;  // How much enemies drop when hitting edge
+  const MOVE_SPEED = 0.3;   // Sideways movement per step
   
   useEffect(() => {
     playerXRef.current = playerX;
   }, [playerX]);
 
-  // Initialize enemies - 5 rows x 8 cols = 40 enemies
-  // All rows visible from start, closer to camera
+  // Initialize enemies - 5 rows x 8 cols
   useEffect(() => {
     const initialEnemies = [];
     const rows = 5;
     const cols = 8;
-    const spacingX = 4;      // Horizontal spacing
-    const spacingY = 1.8;    // Vertical spacing (reduced)
-    const spacingZ = 3;      // Depth spacing (reduced so all visible)
-    const startZ = -8;       // Start closer (was -25)
+    const spacingX = 3.5;
+    const spacingY = 2;
     
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         initialEnemies.push({
           id: `${row}-${col}`,
           x: (col - cols / 2 + 0.5) * spacingX,
-          y: 1.5 + row * spacingY,  // Lower starting height
-          z: startZ - row * spacingZ,  // Back rows further away
+          y: 8 + row * spacingY,  // Start higher up
+          z: -5,  // All at same depth (classic style)
           row: row
         });
       }
@@ -248,7 +257,7 @@ function Game({ gameState, gameActions }) {
   // Shoot function
   const shoot = useCallback(() => {
     const now = Date.now();
-    if (now - lastShotTime.current < 200) return;  // Faster shooting
+    if (now - lastShotTime.current < 200) return;
     lastShotTime.current = now;
     
     setBullets(prev => [...prev, {
@@ -270,52 +279,100 @@ function Game({ gameState, gameActions }) {
     if (gameOver || paused) return;
 
     const gameLoop = setInterval(() => {
-      // Move enemies forward
-      setEnemies(prev => {
-        const newEnemies = prev.map(e => ({
-          ...e,
-          z: e.z + 0.04  // Slightly faster
-        }));
+      // Calculate speed based on remaining enemies (fewer = faster)
+      const baseInterval = 8;  // Move every N frames
+      const speedBoost = Math.max(1, Math.floor((40 - enemies.length) / 5));
+      const moveInterval = Math.max(2, baseInterval - speedBoost);
+      
+      moveStepRef.current++;
+      
+      // CLASSIC SPACE INVADERS MOVEMENT
+      if (moveStepRef.current >= moveInterval) {
+        moveStepRef.current = 0;
         
-        if (newEnemies.some(e => e.z > 6)) {
-          setGameOver(true);
-          playSound('gameOver');
-        }
-        
-        return newEnemies;
-      });
+        setEnemies(prev => {
+          if (prev.length === 0) return prev;
+          
+          // Check if any enemy would hit the boundary
+          const rightMost = Math.max(...prev.map(e => e.x));
+          const leftMost = Math.min(...prev.map(e => e.x));
+          
+          let newDirection = moveDirection;
+          let shouldDrop = false;
+          
+          // Check if we need to change direction and drop
+          if (moveDirection === 1 && rightMost + MOVE_SPEED >= RIGHT_BOUNDARY) {
+            newDirection = -1;
+            shouldDrop = true;
+          } else if (moveDirection === -1 && leftMost - MOVE_SPEED <= LEFT_BOUNDARY) {
+            newDirection = 1;
+            shouldDrop = true;
+          }
+          
+          // Update direction state
+          if (newDirection !== moveDirection) {
+            setMoveDirection(newDirection);
+          }
+          
+          // Move all enemies
+          const newEnemies = prev.map(e => ({
+            ...e,
+            x: shouldDrop ? e.x : e.x + (MOVE_SPEED * moveDirection),
+            y: shouldDrop ? e.y - DROP_AMOUNT : e.y
+          }));
+          
+          // Play step sound
+          playSound('step');
+          
+          // Check if any enemy reached the player level (game over)
+          if (newEnemies.some(e => e.y <= 2)) {
+            setGameOver(true);
+            playSound('gameOver');
+          }
+          
+          return newEnemies;
+        });
+      }
 
-      // Move player bullets - SLOWER for better collision detection
+      // Move player bullets
       setBullets(prev => 
         prev
-          .map(b => ({ ...b, z: b.z - 0.4, y: b.y + 0.08 }))  // Slower bullets
-          .filter(b => b.z > -25)
+          .map(b => ({ ...b, y: b.y + 0.5 }))  // Bullets go UP
+          .filter(b => b.y < 20)
       );
 
       // Move enemy bullets
       setEnemyBullets(prev =>
         prev
-          .map(b => ({ ...b, z: b.z + 0.3, y: b.y - 0.04 }))
-          .filter(b => b.z < 12)
+          .map(b => ({ ...b, y: b.y - 0.3 }))  // Enemy bullets go DOWN
+          .filter(b => b.y > -2)
       );
 
       // Enemy shooting
-      if (Math.random() < 0.02) {
+      if (Math.random() < 0.015) {
         setEnemies(prev => {
           if (prev.length === 0) return prev;
-          const shooter = prev[Math.floor(Math.random() * prev.length)];
+          // Only bottom enemies in each column can shoot
+          const columns = {};
+          prev.forEach(e => {
+            const col = Math.round(e.x * 10);  // Group by x position
+            if (!columns[col] || e.y < columns[col].y) {
+              columns[col] = e;
+            }
+          });
+          const bottomEnemies = Object.values(columns);
+          const shooter = bottomEnemies[Math.floor(Math.random() * bottomEnemies.length)];
           setEnemyBullets(eb => [...eb, {
             id: Date.now(),
             x: shooter.x,
-            y: shooter.y,
+            y: shooter.y - 1,
             z: shooter.z
           }]);
           return prev;
         });
       }
 
-      // Collision detection - player bullets vs enemies
-      // BIGGER hitbox for better detection
+      // Collision: player bullets vs enemies
       setBullets(prevBullets => {
         let remainingBullets = [...prevBullets];
         
@@ -326,9 +383,7 @@ function Game({ gameState, gameActions }) {
             const hitEnemy = remainingEnemies.find(enemy => {
               const dx = Math.abs(bullet.x - enemy.x);
               const dy = Math.abs(bullet.y - enemy.y);
-              const dz = Math.abs(bullet.z - enemy.z);
-              // Larger hitbox: 2 units X, 2.5 units Y, 2.5 units Z
-              return dx < 2 && dy < 2.5 && dz < 2.5;
+              return dx < 1.8 && dy < 1.5;
             });
             
             if (hitEnemy) {
@@ -353,13 +408,12 @@ function Game({ gameState, gameActions }) {
         return remainingBullets;
       });
 
-      // Collision detection - enemy bullets vs player
+      // Collision: enemy bullets vs player
       setEnemyBullets(prev => {
         const currentPlayerX = playerXRef.current;
         const hit = prev.find(b => 
-          Math.abs(b.x - currentPlayerX) < 1.2 &&
-          b.z > 5 &&
-          b.y < 2
+          Math.abs(b.x - currentPlayerX) < 1 &&
+          b.y < 1.5 && b.y > 0
         );
         
         if (hit) {
@@ -381,7 +435,7 @@ function Game({ gameState, gameActions }) {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameOver, paused, playSound, highScore, setGameOver, setScore, setLives, setHighScore]);
+  }, [gameOver, paused, playSound, highScore, moveDirection, enemies.length, setGameOver, setScore, setLives, setHighScore]);
 
   // Keyboard controls
   useEffect(() => {
@@ -419,11 +473,11 @@ function Game({ gameState, gameActions }) {
       <Enemies enemies={enemies} />
       
       {bullets.map(bullet => (
-        <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z]} isEnemy={false} />
+        <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z || -5]} isEnemy={false} />
       ))}
       
       {enemyBullets.map(bullet => (
-        <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z]} isEnemy={true} />
+        <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z || -5]} isEnemy={true} />
       ))}
     </>
   );
@@ -576,7 +630,7 @@ export default function App() {
         >🔥</button>
       </div>
 
-      <Canvas camera={{ position: [0, 12, 22], fov: 60 }}>
+      <Canvas camera={{ position: [0, 8, 18], fov: 60 }}>
         <Suspense fallback={null}>
           <Game gameState={gameState} gameActions={gameActions} />
         </Suspense>
