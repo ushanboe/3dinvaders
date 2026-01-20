@@ -206,7 +206,10 @@ function EnemySprite({ position, row }) {
   const [texture, setTexture] = useState(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  const BASE = import.meta.env.BASE_URL || '/';
+  // Detect if we're on localhost (dev) or production
+  const isLocalhost = typeof window !== 'undefined' && 
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const BASE = isLocalhost ? '/' : '/3dinvaders/';
   const textureFiles = [
     `${BASE}five.png`,
     `${BASE}four.png`,
@@ -218,7 +221,7 @@ function EnemySprite({ position, row }) {
   const texturePath = textureFiles[row] || textureFiles[0];
 
   useEffect(() => {
-    console.log('EnemySprite: Loading texture from:', texturePath);
+    console.log('EnemySprite: isLocalhost=', isLocalhost, 'BASE=', BASE, 'Loading:', texturePath);
     const loader = new THREE.TextureLoader();
     loader.load(
       texturePath,
@@ -273,7 +276,10 @@ function MysterySprite({ position }) {
   const [texture, setTexture] = useState(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  const BASE = import.meta.env.BASE_URL || '/';
+  // Detect if we're on localhost (dev) or production
+  const isLocalhost = typeof window !== 'undefined' && 
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const BASE = isLocalhost ? '/' : '/3dinvaders/';
   const texturePath = `${BASE}mystery.png`;
 
   useEffect(() => {
