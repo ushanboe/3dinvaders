@@ -1,23 +1,6 @@
 import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
-import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
-
-// Error boundary
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true };
-  }
-  render() {
-    if (this.state.hasError) return this.props.fallback || null;
-    return this.props.children;
-  }
-}
 
 // Sound effects
 const useSound = () => {
@@ -51,19 +34,19 @@ const useSound = () => {
         oscillator.type = 'sawtooth';
         oscillator.frequency.setValueAtTime(200, ctx.currentTime);
         oscillator.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
-        gainNode.gain.setValueAtTime(0.4, ctx.currentTime);
+        gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
         oscillator.start(ctx.currentTime);
         oscillator.stop(ctx.currentTime + 0.3);
         break;
-      case 'hit':
-        oscillator.type = 'square';
-        oscillator.frequency.setValueAtTime(150, ctx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.2);
-        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+      case 'playerHit':
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(400, ctx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.4);
+        gainNode.gain.setValueAtTime(0.6, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
         oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.2);
+        oscillator.stop(ctx.currentTime + 0.4);
         break;
       case 'gameOver':
         oscillator.type = 'sawtooth';
@@ -97,6 +80,81 @@ const useSound = () => {
   return playSound;
 };
 
+// Explosion particle effect
+function Explosion({ position, onComplete, color = '#ff6600' }) {
+  const particles = useRef([]);
+  const groupRef = useRef();
+  const [opacity, setOpacity] = useState(1);
+  const startTime = useRef(Date.now());
+  
+  // Create particles on mount
+  useMemo(() => {
+    particles.current = [];
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const speed = 0.1 + Math.random() * 0.15;
+      particles.current.push({
+        x: 0,
+        y: 0,
+        z: 0,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed + Math.random() * 0.1,
+        vz: (Math.random() - 0.5) * 0.1,
+        size: 0.2 + Math.random() * 0.3
+      });
+    }
+  }, []);
+  
+  useFrame(() => {
+    const elapsed = (Date.now() - startTime.current) / 1000;
+    
+    if (elapsed > 0.5) {
+      onComplete();
+      return;
+    }
+    
+    setOpacity(1 - elapsed * 2);
+    
+    particles.current.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.z += p.vz;
+      p.vy -= 0.01; // gravity
+    });
+  });
+  
+  return (
+    <group ref={groupRef} position={position}>
+      {particles.current.map((p, i) => (
+        <mesh key={i} position={[p.x, p.y, p.z]}>
+          <sphereGeometry args={[p.size, 6, 6]} />
+          <meshBasicMaterial color={color} transparent opacity={opacity} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// Enemy sprite using PNG texture
+function EnemySprite({ position, row }) {
+  // Map row to texture file: row 4 (top) = one.png, row 0 (bottom) = five.png
+  const textureFiles = [
+    '/3dinvaders/five.png',   // row 0 (bottom)
+    '/3dinvaders/four.png',   // row 1
+    '/3dinvaders/three.png',  // row 2
+    '/3dinvaders/two.png',    // row 3
+    '/3dinvaders/one.png'     // row 4 (top)
+  ];
+  
+  const texture = useLoader(THREE.TextureLoader, textureFiles[row] || textureFiles[0]);
+  
+  return (
+    <sprite position={position} scale={[2.2, 2.2, 1]}>
+      <spriteMaterial map={texture} transparent />
+    </sprite>
+  );
+}
+
 // Fallback cube enemy
 function CubeEnemy({ position, color }) {
   return (
@@ -107,63 +165,25 @@ function CubeEnemy({ position, color }) {
   );
 }
 
-// Animated enemy model
-function EnemyModel({ position, id }) {
-  const group = useRef();
-  const mixer = useRef();
-  const [error, setError] = useState(false);
-  
-  const { scene, animations } = useGLTF('/3dinvaders/enemy.glb');
-  
-  const clone = useMemo(() => {
-    try {
-      return SkeletonUtils.clone(scene);
-    } catch (err) {
-      setError(true);
-      return null;
-    }
-  }, [scene, id]);
-  
-  useEffect(() => {
-    if (!clone || !animations || animations.length === 0) return;
-    try {
-      mixer.current = new THREE.AnimationMixer(clone);
-      const action = mixer.current.clipAction(animations[0]);
-      action.play();
-    } catch (err) {
-      console.error('Animation error:', err);
-    }
-    return () => {
-      if (mixer.current) mixer.current.stopAllAction();
-    };
-  }, [clone, animations]);
-  
-  useFrame((state, delta) => {
-    if (mixer.current) mixer.current.update(delta);
-  });
-  
-  if (error || !clone) {
-    return <CubeEnemy position={position} color="#ff00ff" />;
-  }
-  
-  return (
-    <group ref={group} position={position}>
-      <primitive object={clone} scale={1.0} rotation={[0, Math.PI, 0]} />
-    </group>
-  );
-}
-
-// Player - at bottom of screen
-function Player({ position }) {
+// Player
+function Player({ position, isHit }) {
   return (
     <group position={position}>
       <mesh position={[0, 0, 0]}>
         <boxGeometry args={[1.5, 0.5, 0.5]} />
-        <meshStandardMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={0.3} />
+        <meshStandardMaterial 
+          color={isHit ? "#ff0000" : "#00ff00"} 
+          emissive={isHit ? "#ff0000" : "#00ff00"} 
+          emissiveIntensity={isHit ? 0.8 : 0.3} 
+        />
       </mesh>
       <mesh position={[0, 0.4, 0]}>
         <cylinderGeometry args={[0.1, 0.1, 0.5, 8]} />
-        <meshStandardMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={0.5} />
+        <meshStandardMaterial 
+          color={isHit ? "#ff0000" : "#00ff00"} 
+          emissive={isHit ? "#ff0000" : "#00ff00"} 
+          emissiveIntensity={isHit ? 1 : 0.5} 
+        />
       </mesh>
     </group>
   );
@@ -183,7 +203,7 @@ function Bullet({ position, isEnemy }) {
   );
 }
 
-// Barrier/Shield - destructible
+// Barrier/Shield
 function Barrier({ barrier }) {
   const blocks = [];
   const blockSize = 0.6;
@@ -203,22 +223,18 @@ function Barrier({ barrier }) {
   return <>{blocks}</>;
 }
 
-// Enemies container
+// Enemies container with sprites
 function Enemies({ enemies }) {
   const rowColors = ['#ff0066', '#ff6600', '#ffff00', '#00ff66', '#0066ff'];
   
   return (
     <>
       {enemies.map(enemy => (
-        <ErrorBoundary key={enemy.id} fallback={
+        <Suspense key={enemy.id} fallback={
           <CubeEnemy position={[enemy.x, enemy.y, enemy.z]} color={rowColors[enemy.row]} />
         }>
-          <Suspense fallback={
-            <CubeEnemy position={[enemy.x, enemy.y, enemy.z]} color={rowColors[enemy.row]} />
-          }>
-            <EnemyModel position={[enemy.x, enemy.y, enemy.z]} id={enemy.id} />
-          </Suspense>
-        </ErrorBoundary>
+          <EnemySprite position={[enemy.x, enemy.y, enemy.z]} row={enemy.row} />
+        </Suspense>
       ))}
     </>
   );
@@ -257,10 +273,12 @@ function Game({ gameState, gameActions }) {
   const [bullets, setBullets] = useState([]);
   const [enemyBullets, setEnemyBullets] = useState([]);
   const [barriers, setBarriers] = useState([]);
+  const [explosions, setExplosions] = useState([]);
+  const [playerHit, setPlayerHit] = useState(false);
   
-  // Wave movement state - which row is currently moving
+  // Wave movement state
   const [moveDirection, setMoveDirection] = useState(1);
-  const [currentMovingRow, setCurrentMovingRow] = useState(4); // Start from top row (row 4)
+  const [currentMovingRow, setCurrentMovingRow] = useState(4);
   const moveTickRef = useRef(0);
   
   const playSound = useSound();
@@ -274,29 +292,29 @@ function Game({ gameState, gameActions }) {
   const DROP_AMOUNT = 0.5;
   const MOVE_SPEED = 0.4;
   
-  // Y positions - everything lower on screen
+  // Y positions - enemies start HIGHER now
   const PLAYER_Y = -8;
   const BARRIER_Y = -5;
-  const ENEMY_START_Y = 0;  // Enemies start at y=0 to y=8
+  const ENEMY_START_Y = 4;  // Moved UP from 0 to 4
   
   useEffect(() => {
     playerXRef.current = playerX;
   }, [playerX]);
 
-  // Initialize enemies - 5 rows x 11 cols - positioned to fit on screen
+  // Initialize enemies - 5 rows x 11 cols
   useEffect(() => {
     const initialEnemies = [];
     const rows = 5;
     const cols = 11;
     const spacingX = 2.5;
-    const spacingY = 1.8;
+    const spacingY = 2.0;
     
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         initialEnemies.push({
           id: `${row}-${col}`,
           x: (col - cols / 2 + 0.5) * spacingX,
-          y: ENEMY_START_Y + row * spacingY,  // Row 0 at bottom, row 4 at top
+          y: ENEMY_START_Y + row * spacingY,
           z: 0,
           row: row
         });
@@ -304,7 +322,7 @@ function Game({ gameState, gameActions }) {
     }
     setEnemies(initialEnemies);
     
-    // Initialize 4 barriers - positioned between player and enemies
+    // Initialize 4 barriers
     const barrierPositions = [-10, -3.5, 3.5, 10];
     const initialBarriers = barrierPositions.map((x, idx) => ({
       id: idx,
@@ -313,6 +331,16 @@ function Game({ gameState, gameActions }) {
       blocks: createBarrierBlocks()
     }));
     setBarriers(initialBarriers);
+  }, []);
+
+  // Add explosion helper
+  const addExplosion = useCallback((x, y, z, color = '#ff6600') => {
+    const id = Date.now() + Math.random();
+    setExplosions(prev => [...prev, { id, x, y, z, color }]);
+  }, []);
+  
+  const removeExplosion = useCallback((id) => {
+    setExplosions(prev => prev.filter(e => e.id !== id));
   }, []);
 
   // Shoot function
@@ -335,13 +363,13 @@ function Game({ gameState, gameActions }) {
     return () => { window.gameShoot = null; };
   }, [shoot]);
 
-  // Game loop with ROW-BY-ROW wave movement
+  // Game loop
   useEffect(() => {
     if (gameOver || paused) return;
 
     const gameLoop = setInterval(() => {
       // Speed based on remaining enemies
-      const baseInterval = 3;  // Faster ticks for row-by-row
+      const baseInterval = 3;
       const speedBoost = Math.max(0, Math.floor((55 - enemies.length) / 10));
       const moveInterval = Math.max(1, baseInterval - speedBoost);
       
@@ -354,29 +382,23 @@ function Game({ gameState, gameActions }) {
         setEnemies(prev => {
           if (prev.length === 0) return prev;
           
-          // Get unique rows that still have enemies
           const activeRows = [...new Set(prev.map(e => e.row))].sort((a, b) => b - a);
           if (activeRows.length === 0) return prev;
           
-          // Find next row to move (cycle through rows top to bottom)
           let rowToMove = currentMovingRow;
           if (!activeRows.includes(rowToMove)) {
-            // Find next available row
             rowToMove = activeRows.find(r => r <= currentMovingRow) || activeRows[0];
           }
           
-          // Get enemies in this row
           const rowEnemies = prev.filter(e => e.row === rowToMove);
           const otherEnemies = prev.filter(e => e.row !== rowToMove);
           
           if (rowEnemies.length === 0) {
-            // Move to next row
             const nextRow = activeRows.find(r => r < rowToMove);
             setCurrentMovingRow(nextRow !== undefined ? nextRow : activeRows[0]);
             return prev;
           }
           
-          // Check boundaries for THIS row
           const rightMost = Math.max(...rowEnemies.map(e => e.x));
           const leftMost = Math.min(...rowEnemies.map(e => e.x));
           
@@ -391,7 +413,6 @@ function Game({ gameState, gameActions }) {
             shouldDrop = true;
           }
           
-          // Move only this row
           const movedRowEnemies = rowEnemies.map(e => ({
             ...e,
             x: shouldDrop ? e.x : e.x + (MOVE_SPEED * moveDirection),
@@ -400,15 +421,12 @@ function Game({ gameState, gameActions }) {
           
           playSound('step');
           
-          // Move to next row for next tick
           const nextRowIdx = activeRows.indexOf(rowToMove);
           const nextRow = activeRows[nextRowIdx + 1];
           if (nextRow !== undefined) {
             setCurrentMovingRow(nextRow);
           } else {
-            // Completed all rows, start from top again
             setCurrentMovingRow(activeRows[0]);
-            // Only reverse direction after all rows have moved
             if (shouldReverse) {
               setMoveDirection(d => -d);
             }
@@ -416,7 +434,6 @@ function Game({ gameState, gameActions }) {
           
           const newEnemies = [...otherEnemies, ...movedRowEnemies];
           
-          // Game over if any enemy reaches barrier level
           if (newEnemies.some(e => e.y <= BARRIER_Y + 2)) {
             setGameOver(true);
             playSound('gameOver');
@@ -430,7 +447,7 @@ function Game({ gameState, gameActions }) {
       setBullets(prev => 
         prev
           .map(b => ({ ...b, y: b.y + 0.5 }))
-          .filter(b => b.y < 15)
+          .filter(b => b.y < 20)
       );
 
       // Move enemy bullets DOWN
@@ -463,7 +480,7 @@ function Game({ gameState, gameActions }) {
         });
       }
 
-      // Collision: player bullets vs enemies (ONE enemy per bullet)
+      // Collision: player bullets vs enemies
       setEnemies(prevEnemies => {
         let remainingEnemies = [...prevEnemies];
         
@@ -476,7 +493,7 @@ function Game({ gameState, gameActions }) {
               const dx = Math.abs(bullet.x - enemy.x);
               const dy = Math.abs(bullet.y - enemy.y);
               
-              if (dx < 1.2 && dy < 1.0) {
+              if (dx < 1.2 && dy < 1.2) {
                 if (enemy.y < closestY) {
                   closestY = enemy.y;
                   hitEnemy = enemy;
@@ -486,6 +503,8 @@ function Game({ gameState, gameActions }) {
             
             if (hitEnemy) {
               remainingEnemies = remainingEnemies.filter(e => e.id !== hitEnemy.id);
+              // ADD EXPLOSION!
+              addExplosion(hitEnemy.x, hitEnemy.y, hitEnemy.z, '#ff6600');
               setScore(s => {
                 const newScore = s + 10;
                 if (newScore > highScore) {
@@ -575,13 +594,18 @@ function Game({ gameState, gameActions }) {
         );
         
         if (hit) {
+          // ADD PLAYER HIT EXPLOSION!
+          addExplosion(currentPlayerX, PLAYER_Y, 0, '#ff0000');
+          setPlayerHit(true);
+          setTimeout(() => setPlayerHit(false), 300);
+          
           setLives(l => {
             const newLives = l - 1;
             if (newLives <= 0) {
               setGameOver(true);
               playSound('gameOver');
             } else {
-              playSound('hit');
+              playSound('playerHit');
             }
             return newLives;
           });
@@ -593,7 +617,7 @@ function Game({ gameState, gameActions }) {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameOver, paused, playSound, highScore, moveDirection, currentMovingRow, enemies.length, setGameOver, setScore, setLives, setHighScore]);
+  }, [gameOver, paused, playSound, highScore, moveDirection, currentMovingRow, enemies.length, setGameOver, setScore, setLives, setHighScore, addExplosion]);
 
   // Keyboard controls
   useEffect(() => {
@@ -626,7 +650,7 @@ function Game({ gameState, gameActions }) {
       <pointLight position={[0, 15, 10]} intensity={1} />
       <directionalLight position={[0, 10, 10]} intensity={0.8} />
       
-      <Player position={[playerX, PLAYER_Y, 0]} />
+      <Player position={[playerX, PLAYER_Y, 0]} isHit={playerHit} />
       <Enemies enemies={enemies} />
       
       {barriers.map(barrier => (
@@ -639,6 +663,16 @@ function Game({ gameState, gameActions }) {
       
       {enemyBullets.map(bullet => (
         <Bullet key={bullet.id} position={[bullet.x, bullet.y, bullet.z]} isEnemy={true} />
+      ))}
+      
+      {/* Explosions */}
+      {explosions.map(exp => (
+        <Explosion 
+          key={exp.id} 
+          position={[exp.x, exp.y, exp.z]} 
+          color={exp.color}
+          onComplete={() => removeExplosion(exp.id)} 
+        />
       ))}
     </>
   );
@@ -791,8 +825,7 @@ export default function App() {
         >🔥</button>
       </div>
 
-      {/* Camera positioned to see entire play area */}
-      <Canvas camera={{ position: [0, 0, 28], fov: 50 }}>
+      <Canvas camera={{ position: [0, 2, 30], fov: 50 }}>
         <Suspense fallback={null}>
           <Game gameState={gameState} gameActions={gameActions} />
         </Suspense>
@@ -800,5 +833,3 @@ export default function App() {
     </div>
   );
 }
-
-useGLTF.preload('/3dinvaders/enemy.glb');
