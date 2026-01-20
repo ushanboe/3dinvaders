@@ -505,7 +505,8 @@ function createEnemies(level) {
         originalY: ENEMY_START_Y + row * spacingY,
         isDiving: false,
         divePhase: 0,
-        diveProgress: 0
+        diveProgress: 0,
+        isLeader: false
       });
     }
   }
@@ -537,6 +538,7 @@ function Game({ gameState, gameActions }) {
   
   // Dive attack state
   const [divingEnemies, setDivingEnemies] = useState([]);
+  const [diveDirection, setDiveDirection] = useState(1); // 1 = start left go right, -1 = start right go left
   const lastDiveTime = useRef(0);
   
   const [moveDirection, setMoveDirection] = useState(1);
@@ -618,7 +620,7 @@ function Game({ gameState, gameActions }) {
   // Check for level complete
   useEffect(() => {
     const aliveEnemies = enemies.filter(e => !e.isDiving || divingEnemies.includes(e.id));
-    const totalAlive = aliveEnemies.length;
+    const totalAlive = enemies.length;
     
     if (totalAlive === 0 && initialEnemyCount.current > 0 && !levelCompleteChecked.current && !gameOver && !gameWon && gameStarted && !showLevelUp) {
       levelCompleteChecked.current = true;
@@ -753,33 +755,55 @@ function Game({ gameState, gameActions }) {
         });
       }
       
-      // Dive attack trigger (random, every 8-15 seconds)
+      // Dive attack trigger (random, every 10-18 seconds)
       const now = Date.now();
-      if (now - lastDiveTime.current > 8000 + Math.random() * 7000) {
+      if (divingEnemies.length === 0 && now - lastDiveTime.current > 10000 + Math.random() * 8000) {
         const nonDivingEnemies = currentEnemies.filter(e => !e.isDiving);
-        const row0Enemies = nonDivingEnemies.filter(e => e.row === 4); // Top row
+        const row0Enemies = nonDivingEnemies.filter(e => e.row === 4); // Top row (row 4 is highest)
         const row1Enemies = nonDivingEnemies.filter(e => e.row === 3); // Second row
         
         if (row0Enemies.length >= 1 && row1Enemies.length >= 2) {
-          // Select 1 from row 0, 2 from row 1
+          // Select 1 from row 0 (leader), 2 from row 1 (wingmen)
           const leader = row0Enemies[Math.floor(Math.random() * row0Enemies.length)];
           const shuffled = [...row1Enemies].sort(() => Math.random() - 0.5);
           const wingmen = shuffled.slice(0, 2);
           
           const diveIds = [leader.id, ...wingmen.map(w => w.id)];
+          
+          // Randomly choose direction: start from left or right
+          const newDiveDirection = Math.random() > 0.5 ? 1 : -1;
+          setDiveDirection(newDiveDirection);
           setDivingEnemies(diveIds);
+          
+          // Set up dive parameters for each enemy
+          // Phase 0: Move to staging position (top corner)
+          // Phase 1: Swoop diagonally across screen
+          // Phase 2: Return to original position
+          const stagingX = newDiveDirection === 1 ? -16 : 16; // Start from opposite side
+          const stagingY = 18; // High up
           
           setEnemies(prev => prev.map(e => {
             if (diveIds.includes(e.id)) {
+              const isLeader = e.id === leader.id;
+              // Formation offsets: leader in front, wingmen behind
+              const formationOffsetX = isLeader ? 0 : (e.id === wingmen[0].id ? -1.5 : 1.5);
+              const formationOffsetY = isLeader ? 0 : -2; // Wingmen behind leader
+              
               return {
                 ...e,
                 isDiving: true,
+                isLeader: isLeader,
                 divePhase: 0,
                 diveProgress: 0,
                 diveStartX: e.x,
                 diveStartY: e.y,
                 originalX: e.x,
-                originalY: e.y
+                originalY: e.y,
+                stagingX: stagingX + formationOffsetX,
+                stagingY: stagingY + formationOffsetY,
+                formationOffsetX,
+                formationOffsetY,
+                diveDirection: newDiveDirection
               };
             }
             return e;
@@ -797,22 +821,39 @@ function Game({ gameState, gameActions }) {
         let newX = e.x;
         let newY = e.y;
         let newPhase = e.divePhase;
-        let newProgress = e.diveProgress + 0.02 * levelSpeed;
+        let newProgress = e.diveProgress + 0.012; // Slower for more time to shoot
         let stillDiving = true;
         
-        const playerTarget = playerXRef.current;
-        
         if (e.divePhase === 0) {
-          // Diving down towards player
-          const targetY = PLAYER_Y + 3;
+          // Phase 0: Move to staging position (top corner)
           const t = Math.min(newProgress, 1);
           const easeT = t * t * (3 - 2 * t); // Smooth step
           
-          newX = e.diveStartX + (playerTarget - e.diveStartX) * easeT * 0.7;
-          newY = e.diveStartY + (targetY - e.diveStartY) * easeT;
+          newX = e.diveStartX + (e.stagingX - e.diveStartX) * easeT;
+          newY = e.diveStartY + (e.stagingY - e.diveStartY) * easeT;
           
-          // Shoot during dive
-          if (t > 0.3 && t < 0.7 && Math.random() < 0.02) {
+          if (newProgress >= 1) {
+            newPhase = 1;
+            newProgress = 0;
+          }
+        } else if (e.divePhase === 1) {
+          // Phase 1: Swoop diagonally across screen
+          const t = Math.min(newProgress, 1);
+          const easeT = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // Ease in-out
+          
+          // Diagonal swoop from staging to opposite bottom corner
+          const endX = -e.stagingX; // Opposite side
+          const endY = PLAYER_Y + 2; // Near player level
+          
+          // Add arc to the path
+          const arcHeight = 4;
+          const arc = Math.sin(t * Math.PI) * arcHeight;
+          
+          newX = e.stagingX + (endX - e.stagingX) * easeT;
+          newY = e.stagingY + (endY - e.stagingY) * easeT + arc;
+          
+          // Shoot during swoop (middle portion)
+          if (t > 0.2 && t < 0.8 && Math.random() < 0.015) {
             setEnemyBullets(eb => [...eb, {
               id: Date.now() + Math.random(),
               x: newX,
@@ -822,16 +863,22 @@ function Game({ gameState, gameActions }) {
           }
           
           if (newProgress >= 1) {
-            newPhase = 1;
+            newPhase = 2;
             newProgress = 0;
+            // Store current position for return journey
+            e.returnStartX = newX;
+            e.returnStartY = newY;
           }
-        } else if (e.divePhase === 1) {
-          // Returning to original position
+        } else if (e.divePhase === 2) {
+          // Phase 2: Return to original position
           const t = Math.min(newProgress, 1);
           const easeT = t * t * (3 - 2 * t);
           
-          newX = e.x + (e.originalX - e.x) * easeT;
-          newY = e.y + (e.originalY - e.y) * easeT;
+          const startX = e.returnStartX || newX;
+          const startY = e.returnStartY || newY;
+          
+          newX = startX + (e.originalX - startX) * easeT;
+          newY = startY + (e.originalY - startY) * easeT;
           
           if (newProgress >= 1) {
             stillDiving = false;
@@ -847,7 +894,9 @@ function Game({ gameState, gameActions }) {
           y: newY,
           divePhase: newPhase,
           diveProgress: newProgress,
-          isDiving: stillDiving
+          isDiving: stillDiving,
+          returnStartX: e.divePhase === 1 && newPhase === 2 ? newX : e.returnStartX,
+          returnStartY: e.divePhase === 1 && newPhase === 2 ? newY : e.returnStartY
         };
       }));
       
@@ -1153,7 +1202,7 @@ function Game({ gameState, gameActions }) {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameOver, gameWon, paused, gameStarted, showLevelUp, playSound, highScore, moveDirection, currentMovingRow, pendingDrop, level, mystery, mysterySpawned, setGameOver, setScore, setLives, setHighScore, addExplosion]);
+  }, [gameOver, gameWon, paused, gameStarted, showLevelUp, playSound, highScore, moveDirection, currentMovingRow, pendingDrop, level, mystery, mysterySpawned, divingEnemies, setGameOver, setScore, setLives, setHighScore, addExplosion]);
 
   // Keyboard controls
   useEffect(() => {
@@ -1278,6 +1327,7 @@ export default function App() {
             <p>🎮 PC: Arrow keys / WASD to move, SPACE to shoot</p>
             <p>📱 Mobile: Use on-screen buttons</p>
             <p style={{ color: '#f0f', marginTop: '10px' }}>👾 Watch for the MYSTERY INVADER - 1000 PTS!</p>
+            <p style={{ color: '#ff6600', marginTop: '5px' }}>🔺 Beware of DIVE ATTACKS!</p>
           </div>
           
           {highScore > 0 && (
@@ -1325,7 +1375,7 @@ export default function App() {
       )}
 
       {/* Mystery Indicator */}
-      {gameStarted && gameState.showMysteryIndicator && (
+      {gameStarted && showMysteryIndicator && (
         <div style={{
           position: 'absolute',
           top: '50%',
