@@ -1350,6 +1350,7 @@ function Game({ gameState, gameActions }) {
 
 // Main App
 export default function App() {
+  console.log('App component loaded!');
   const [playerX, setPlayerX] = useState(0);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
@@ -1366,7 +1367,10 @@ export default function App() {
   const restart = () => window.location.reload();
   
   const startGame = () => {
+    console.log('START GAME CLICKED!');
+    alert('Starting game...');
     setGameStarted(true);
+    console.log('gameStarted set to true');
   };
 
   const gameState = { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp };
