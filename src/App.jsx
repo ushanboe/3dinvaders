@@ -57,6 +57,22 @@ const useSound = () => {
         oscillator.start(ctx.currentTime);
         oscillator.stop(ctx.currentTime + 0.5);
         break;
+      case 'victory':
+        // Happy ascending melody
+        const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
+        notes.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+          gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.2);
+          osc.start(ctx.currentTime + i * 0.15);
+          osc.stop(ctx.currentTime + i * 0.15 + 0.2);
+        });
+        break;
       case 'step':
         oscillator.type = 'square';
         oscillator.frequency.setValueAtTime(80 + Math.random() * 40, ctx.currentTime);
@@ -261,8 +277,8 @@ function createBarrierBlocks() {
 
 // Main game component
 function Game({ gameState, gameActions }) {
-  const { playerX, score, lives, gameOver, paused, highScore } = gameState;
-  const { setPlayerX, setScore, setLives, setGameOver, setHighScore } = gameActions;
+  const { playerX, score, lives, gameOver, gameWon, paused, highScore } = gameState;
+  const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore } = gameActions;
   
   const [enemies, setEnemies] = useState([]);
   const [bullets, setBullets] = useState([]);
@@ -273,10 +289,11 @@ function Game({ gameState, gameActions }) {
   
   // Wave movement state - ROW BY ROW
   const [moveDirection, setMoveDirection] = useState(1);
-  const [currentMovingRow, setCurrentMovingRow] = useState(4); // Start from top row (row 4)
+  const [currentMovingRow, setCurrentMovingRow] = useState(4);
   const [pendingDrop, setPendingDrop] = useState(false);
   const moveTickRef = useRef(0);
   const initialEnemyCount = useRef(55);
+  const victoryChecked = useRef(false);
   
   // Refs for collision detection
   const enemiesRef = useRef([]);
@@ -305,7 +322,14 @@ function Game({ gameState, gameActions }) {
   
   useEffect(() => {
     enemiesRef.current = enemies;
-  }, [enemies]);
+    
+    // Check for victory - all enemies destroyed
+    if (enemies.length === 0 && initialEnemyCount.current > 0 && !victoryChecked.current && !gameOver && !gameWon) {
+      victoryChecked.current = true;
+      setGameWon(true);
+      playSound('victory');
+    }
+  }, [enemies, gameOver, gameWon, setGameWon, playSound]);
   
   useEffect(() => {
     bulletsRef.current = bullets;
@@ -332,6 +356,7 @@ function Game({ gameState, gameActions }) {
     }
     setEnemies(initialEnemies);
     initialEnemyCount.current = initialEnemies.length;
+    victoryChecked.current = false;
     
     const barrierPositions = [-10, -3.5, 3.5, 10];
     const initialBarriers = barrierPositions.map((x, idx) => ({
@@ -375,14 +400,15 @@ function Game({ gameState, gameActions }) {
 
   // Game loop
   useEffect(() => {
-    if (gameOver || paused) return;
+    if (gameOver || gameWon || paused) return;
 
     const gameLoop = setInterval(() => {
       const currentEnemies = enemiesRef.current;
       
+      // Skip if no enemies left
+      if (currentEnemies.length === 0) return;
+      
       // Speed calculation - VERY GRADUAL
-      // Base interval 8 ticks (400ms between row moves)
-      // Speed up every 20 enemies destroyed
       const enemiesDestroyed = initialEnemyCount.current - currentEnemies.length;
       const speedBoost = Math.floor(enemiesDestroyed / 20);
       const moveInterval = Math.max(3, 8 - speedBoost);
@@ -403,7 +429,6 @@ function Game({ gameState, gameActions }) {
           // Find which row to move
           let rowToMove = currentMovingRow;
           if (!activeRows.includes(rowToMove)) {
-            // Current row is empty, find next available
             rowToMove = activeRows.find(r => r <= currentMovingRow);
             if (rowToMove === undefined) rowToMove = activeRows[0];
           }
@@ -412,7 +437,6 @@ function Game({ gameState, gameActions }) {
           const otherEnemies = prev.filter(e => e.row !== rowToMove);
           
           if (rowEnemies.length === 0) {
-            // Skip to next row
             const nextRowIdx = activeRows.indexOf(rowToMove) + 1;
             if (nextRowIdx < activeRows.length) {
               setCurrentMovingRow(activeRows[nextRowIdx]);
@@ -449,14 +473,11 @@ function Game({ gameState, gameActions }) {
           const nextRowIdx = currentRowIdx + 1;
           
           if (nextRowIdx >= activeRows.length) {
-            // Completed all rows, start from top again
             setCurrentMovingRow(activeRows[0]);
             
-            // If we triggered a drop, next cycle all rows drop and reverse
             if (triggerDrop) {
               setPendingDrop(true);
             } else if (pendingDrop) {
-              // We just finished dropping, now reverse direction
               setPendingDrop(false);
               setMoveDirection(d => -d);
             }
@@ -663,12 +684,12 @@ function Game({ gameState, gameActions }) {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameOver, paused, playSound, highScore, moveDirection, currentMovingRow, pendingDrop, setGameOver, setScore, setLives, setHighScore, addExplosion]);
+  }, [gameOver, gameWon, paused, playSound, highScore, moveDirection, currentMovingRow, pendingDrop, setGameOver, setScore, setLives, setHighScore, addExplosion]);
 
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (gameOver) return;
+      if (gameOver || gameWon) return;
       
       switch(e.key) {
         case 'ArrowLeft':
@@ -688,7 +709,7 @@ function Game({ gameState, gameActions }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameOver, setPlayerX, shoot]);
+  }, [gameOver, gameWon, setPlayerX, shoot]);
 
   return (
     <>
@@ -729,6 +750,7 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [gameOver, setGameOver] = useState(false);
+  const [gameWon, setGameWon] = useState(false);
   const [paused, setPaused] = useState(false);
   const [highScore, setHighScore] = useState(() => {
     return parseInt(localStorage.getItem('highScore') || '0');
@@ -736,8 +758,8 @@ export default function App() {
 
   const restart = () => window.location.reload();
 
-  const gameState = { playerX, score, lives, gameOver, paused, highScore };
-  const gameActions = { setPlayerX, setScore, setLives, setGameOver, setHighScore };
+  const gameState = { playerX, score, lives, gameOver, gameWon, paused, highScore };
+  const gameActions = { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore };
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#000', touchAction: 'none' }}>
@@ -776,6 +798,56 @@ export default function App() {
       >
         {paused ? '▶️' : '⏸️'}
       </button>
+
+      {/* Victory overlay */}
+      {gameWon && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0,0,0,0.85)',
+          zIndex: 200
+        }}>
+          <h1 style={{ 
+            color: '#0f0', 
+            fontFamily: 'monospace', 
+            fontSize: '48px',
+            textShadow: '0 0 20px #0f0, 0 0 40px #0f0',
+            animation: 'pulse 1s infinite'
+          }}>🎉 VICTORY! 🎉</h1>
+          <p style={{ color: '#ff0', fontFamily: 'monospace', fontSize: '28px', marginTop: '10px' }}>
+            EARTH IS SAVED!
+          </p>
+          <p style={{ color: '#0ff', fontFamily: 'monospace', fontSize: '24px', marginTop: '20px' }}>
+            Final Score: {score}
+          </p>
+          {score >= highScore && score > 0 && (
+            <p style={{ color: '#f0f', fontFamily: 'monospace', fontSize: '20px', marginTop: '10px' }}>
+              🏆 NEW HIGH SCORE! 🏆
+            </p>
+          )}
+          <button
+            onClick={restart}
+            style={{
+              marginTop: '30px',
+              padding: '15px 30px',
+              fontSize: '20px',
+              fontFamily: 'monospace',
+              background: '#0f0',
+              border: 'none',
+              color: '#000',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >PLAY AGAIN</button>
+        </div>
+      )}
 
       {/* Game Over overlay */}
       {gameOver && (
@@ -875,6 +947,13 @@ export default function App() {
           <Game gameState={gameState} gameActions={gameActions} />
         </Suspense>
       </Canvas>
+      
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.05); }
+        }
+      `}</style>
     </div>
   );
 }
