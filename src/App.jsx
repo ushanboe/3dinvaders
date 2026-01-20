@@ -609,6 +609,52 @@ function getLevelSpeed(level) {
 }
 
 // Main game component
+
+// Animated Starfield Background
+function Starfield() {
+  const starsRef = useRef();
+  const stars = useMemo(() => {
+    const positions = [];
+    const speeds = [];
+    for (let i = 0; i < 500; i++) {
+      positions.push(
+        (Math.random() - 0.5) * 100,  // x
+        (Math.random() - 0.5) * 60,   // y
+        -20 - Math.random() * 30      // z (behind everything)
+      );
+      speeds.push(0.02 + Math.random() * 0.05);
+    }
+    return { positions: new Float32Array(positions), speeds };
+  }, []);
+
+  useFrame(() => {
+    if (!starsRef.current) return;
+    const positions = starsRef.current.geometry.attributes.position.array;
+    for (let i = 0; i < positions.length; i += 3) {
+      positions[i + 1] -= stars.speeds[i / 3]; // Move down
+      if (positions[i + 1] < -30) {
+        positions[i + 1] = 30; // Reset to top
+        positions[i] = (Math.random() - 0.5) * 100; // Randomize x
+      }
+    }
+    starsRef.current.geometry.attributes.position.needsUpdate = true;
+  });
+
+  return (
+    <points ref={starsRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={stars.positions.length / 3}
+          array={stars.positions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial size={0.15} color="#ffffff" transparent opacity={0.8} sizeAttenuation />
+    </points>
+  );
+}
+
 function Game({ gameState, gameActions }) {
   const { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator } = gameState;
   const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator } = gameActions;
@@ -1372,6 +1418,17 @@ export default function App() {
   const [highScore, setHighScore] = useState(() => {
     return parseInt(localStorage.getItem('highScore') || '0');
   });
+  const [shotsFired, setShotsFired] = useState(0);
+  const [shotsHit, setShotsHit] = useState(0);
+  const [topScores, setTopScores] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('topScores') || '[]');
+    } catch { return []; }
+  });
+  const [showNameEntry, setShowNameEntry] = useState(false);
+  const [playerName, setPlayerName] = useState('');
+  const [diveKillCount, setDiveKillCount] = useState(0);
+  const [currentDiveIds, setCurrentDiveIds] = useState([]);
 
   const restart = () => window.location.reload();
   
@@ -1380,8 +1437,8 @@ export default function App() {
     setGameStarted(true);
   };
 
-  const gameState = { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator };
-  const gameActions = { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator };
+  const gameState = { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator, shotsFired, shotsHit, diveKillCount, currentDiveIds };
+  const gameActions = { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator, setShotsFired, setShotsHit, setDiveKillCount, setCurrentDiveIds };
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: 'linear-gradient(to bottom, #000011, #000033)', touchAction: 'none' }}>
@@ -1465,6 +1522,7 @@ export default function App() {
           <div>SCORE: {score}</div>
           <div>HIGH: {highScore}</div>
           <div>LIVES: {'💎'.repeat(lives)}</div>
+          <div>ACCURACY: {shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0}%</div>
         </div>
       )}
 
@@ -1619,16 +1677,115 @@ export default function App() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'rgba(20,0,0,0.9)',
-          zIndex: 200
+          background: 'rgba(20,0,0,0.95)',
+          zIndex: 200,
+          overflow: 'auto',
+          padding: '20px'
         }}>
-          <h1 style={{ color: '#f00', fontFamily: 'monospace', fontSize: '48px', textShadow: '0 0 20px #f00' }}>GAME OVER</h1>
-          <p style={{ color: '#0ff', fontFamily: 'monospace', fontSize: '24px' }}>Level: {level}</p>
-          <p style={{ color: '#0ff', fontFamily: 'monospace', fontSize: '24px' }}>Score: {score}</p>
+          <h1 style={{ color: '#f00', fontFamily: 'monospace', fontSize: '48px', textShadow: '0 0 20px #f00', margin: '10px 0' }}>GAME OVER</h1>
+
+          <div style={{ color: '#0ff', fontFamily: 'monospace', fontSize: '20px', textAlign: 'center', margin: '10px 0' }}>
+            <div>Level: {level} | Score: {score}</div>
+            <div>Accuracy: {shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0}% ({shotsHit}/{shotsFired})</div>
+          </div>
+
+          {score > 0 && !showNameEntry && !topScores.some(s => s.score === score && s.isNew) && (
+            <button
+              onClick={() => setShowNameEntry(true)}
+              style={{
+                margin: '10px 0',
+                padding: '10px 20px',
+                fontSize: '16px',
+                fontFamily: 'monospace',
+                background: 'linear-gradient(to bottom, #44ff44, #00cc00)',
+                border: 'none',
+                color: '#000',
+                cursor: 'pointer',
+                borderRadius: '10px',
+                boxShadow: '0 0 10px #0f0'
+              }}
+            >ENTER NAME FOR LEADERBOARD</button>
+          )}
+
+          {showNameEntry && (
+            <div style={{ margin: '10px 0', textAlign: 'center' }}>
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value.toUpperCase().slice(0, 10))}
+                placeholder="YOUR NAME"
+                maxLength={10}
+                style={{
+                  padding: '10px',
+                  fontSize: '18px',
+                  fontFamily: 'monospace',
+                  background: '#001',
+                  border: '2px solid #0ff',
+                  color: '#0ff',
+                  textAlign: 'center',
+                  width: '150px'
+                }}
+              />
+              <button
+                onClick={() => {
+                  if (playerName.trim()) {
+                    const accuracy = shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0;
+                    const newEntry = { name: playerName.trim(), score, level, accuracy, date: new Date().toLocaleDateString(), isNew: true };
+                    const newScores = [...topScores.map(s => ({...s, isNew: false})), newEntry]
+                      .sort((a, b) => b.score - a.score)
+                      .slice(0, 10);
+                    setTopScores(newScores);
+                    localStorage.setItem('topScores', JSON.stringify(newScores));
+                    setShowNameEntry(false);
+                  }
+                }}
+                style={{
+                  marginLeft: '10px',
+                  padding: '10px 15px',
+                  fontSize: '16px',
+                  fontFamily: 'monospace',
+                  background: 'linear-gradient(to bottom, #44ff44, #00cc00)',
+                  border: 'none',
+                  color: '#000',
+                  cursor: 'pointer',
+                  borderRadius: '8px'
+                }}
+              >SAVE</button>
+            </div>
+          )}
+
+          {topScores.length > 0 && (
+            <div style={{ margin: '15px 0', textAlign: 'center' }}>
+              <h2 style={{ color: '#ff0', fontFamily: 'monospace', fontSize: '24px', textShadow: '0 0 10px #ff0', margin: '10px 0' }}>🏆 TOP SCORES 🏆</h2>
+              <table style={{ fontFamily: 'monospace', fontSize: '14px', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ color: '#ff0' }}>
+                    <th style={{ padding: '5px 10px' }}>#</th>
+                    <th style={{ padding: '5px 10px' }}>NAME</th>
+                    <th style={{ padding: '5px 10px' }}>SCORE</th>
+                    <th style={{ padding: '5px 10px' }}>LVL</th>
+                    <th style={{ padding: '5px 10px' }}>ACC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topScores.map((entry, i) => (
+                    <tr key={i} style={{ color: entry.isNew ? '#0f0' : '#0ff', background: entry.isNew ? 'rgba(0,255,0,0.1)' : 'transparent' }}>
+                      <td style={{ padding: '3px 10px' }}>{i + 1}</td>
+                      <td style={{ padding: '3px 10px' }}>{entry.name}</td>
+                      <td style={{ padding: '3px 10px' }}>{entry.score}</td>
+                      <td style={{ padding: '3px 10px' }}>{entry.level}</td>
+                      <td style={{ padding: '3px 10px' }}>{entry.accuracy}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           <button
             onClick={restart}
             style={{
-              marginTop: '20px',
+              marginTop: '15px',
               padding: '15px 30px',
               fontSize: '20px',
               fontFamily: 'monospace',
@@ -1639,7 +1796,7 @@ export default function App() {
               borderRadius: '15px',
               boxShadow: '0 0 15px #f00'
             }}
-          >RESTART</button>
+          >PLAY AGAIN</button>
         </div>
       )}
 
