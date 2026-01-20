@@ -892,7 +892,9 @@ function Game({ gameState, gameActions }) {
                 stagingY: stagingY + formationOffsetY,
                 formationOffsetX,
                 formationOffsetY,
-                diveDirection: newDiveDirection
+                diveDirection: newDiveDirection,
+                returnStartX: e.x,  // Initialize to prevent undefined
+                returnStartY: e.y   // Initialize to prevent undefined
               };
             }
             return e;
@@ -932,7 +934,7 @@ function Game({ gameState, gameActions }) {
           
           // Diagonal swoop from staging to opposite bottom corner
           const endX = -e.stagingX; // Opposite side
-          const endY = PLAYER_Y + 2; // Near player level
+          const endY = 3; // Stop above barriers (barriers are at y=0)
           
           // Add arc to the path
           const arcHeight = 4;
