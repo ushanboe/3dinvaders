@@ -112,9 +112,11 @@ function EnemyModel({ position, id }) {
   const { scene, animations } = useGLTF('/3dinvaders/enemy.glb');
   
   useEffect(() => {
-    log(`[EnemyModel ${id}] Model loaded:`, {
+    log(`[EnemyModel ${id}] Model data:`, {
       scene: scene ? 'exists' : 'missing',
-      animations: animations?.length || 0
+      sceneChildren: scene?.children?.length,
+      animations: animations?.length || 0,
+      animNames: animations?.map(a => a.name)
     });
   }, [scene, animations, id]);
   
@@ -123,10 +125,12 @@ function EnemyModel({ position, id }) {
     try {
       log(`[EnemyModel ${id}] Cloning scene...`);
       const cloned = SkeletonUtils.clone(scene);
-      log(`[EnemyModel ${id}] Clone successful:`, {
-        children: cloned.children?.length,
-        type: cloned.type
-      });
+      
+      // Log bounding box to understand model size
+      const box = new THREE.Box3().setFromObject(cloned);
+      const size = box.getSize(new THREE.Vector3());
+      log(`[EnemyModel ${id}] Model size:`, size);
+      
       return cloned;
     } catch (err) {
       console.error(`[EnemyModel ${id}] Clone failed:`, err);
@@ -143,12 +147,12 @@ function EnemyModel({ position, id }) {
     }
     
     if (animations && animations.length > 0) {
-      log(`[EnemyModel ${id}] Setting up animation mixer...`);
+      log(`[EnemyModel ${id}] Setting up animation: ${animations[0].name}`);
       try {
         mixer.current = new THREE.AnimationMixer(clone);
         const action = mixer.current.clipAction(animations[0]);
         action.play();
-        log(`[EnemyModel ${id}] Animation started:`, animations[0].name);
+        log(`[EnemyModel ${id}] Animation playing!`);
       } catch (err) {
         console.error(`[EnemyModel ${id}] Animation setup failed:`, err);
       }
@@ -156,7 +160,6 @@ function EnemyModel({ position, id }) {
       return () => {
         if (mixer.current) {
           mixer.current.stopAllAction();
-          mixer.current.uncacheRoot(clone);
         }
       };
     } else {
@@ -176,9 +179,10 @@ function EnemyModel({ position, id }) {
     return <CubeEnemy position={position} color="#ff00ff" />;
   }
   
+  // Increased scale from 0.02 to 0.5 to make model visible
   return (
     <group ref={group} position={position}>
-      <primitive object={clone} scale={0.02} rotation={[0, Math.PI, 0]} />
+      <primitive object={clone} scale={0.5} rotation={[0, Math.PI, 0]} />
     </group>
   );
 }
@@ -227,7 +231,10 @@ function Road() {
 function Enemies({ enemies }) {
   const rowColors = ['#ff0066', '#ff6600', '#ffff00', '#00ff66', '#0066ff'];
   
-  log('[Enemies] Rendering', enemies.length, 'enemies');
+  // Only log once per render cycle
+  useEffect(() => {
+    log('[Enemies] Total enemies:', enemies.length);
+  }, [enemies.length]);
   
   return (
     <>
@@ -255,20 +262,20 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
   const playSound = useSound();
   const lastShotTime = useRef(0);
 
-  // Initialize enemies
+  // Initialize enemies - reduced count for testing
   useEffect(() => {
     log('[Game] Initializing enemies...');
     const initialEnemies = [];
-    const rows = 5;
-    const cols = 12;
+    const rows = 3;  // Reduced for testing
+    const cols = 5;  // Reduced for testing
     
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         initialEnemies.push({
           id: `${row}-${col}`,
-          x: (col - cols / 2 + 0.5) * 1.2,
-          y: 2 + row * 0.5,
-          z: -15 + row * 2,
+          x: (col - cols / 2 + 0.5) * 2.5,  // Wider spacing
+          y: 1 + row * 1.5,  // Adjusted height
+          z: -5 + row * 3,   // Closer to camera
           row: row
         });
       }
@@ -437,9 +444,9 @@ function Game({ playerX, setPlayerX, score, setScore, lives, setLives, gameOver,
 
   return (
     <>
-      <ambientLight intensity={0.6} />
-      <pointLight position={[0, 10, 5]} intensity={1} />
-      <directionalLight position={[5, 10, 5]} intensity={0.8} />
+      <ambientLight intensity={0.8} />
+      <pointLight position={[0, 10, 5]} intensity={1.5} />
+      <directionalLight position={[5, 10, 5]} intensity={1} />
       
       <Road />
       
@@ -521,7 +528,7 @@ export default function App() {
         padding: '5px 10px',
         borderRadius: '5px'
       }}>
-        DEBUG MODE - Check Console (F12)
+        DEBUG v2 - Check Console (F12)
       </div>
 
       {/* Pause button */}
@@ -637,7 +644,7 @@ export default function App() {
         >🔥</button>
       </div>
 
-      <Canvas camera={{ position: [0, 5, 12], fov: 60 }}>
+      <Canvas camera={{ position: [0, 8, 15], fov: 60 }}>
         <Suspense fallback={null}>
           <Game 
             playerX={playerX}
