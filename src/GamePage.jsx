@@ -210,7 +210,7 @@ function EnemySprite({ position, row }) {
   // Detect if we're on localhost (dev) or production
   const isLocalhost = typeof window !== 'undefined' && 
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const BASE = isLocalhost ? '/' : '/3dinvaders/';
+  const BASE = (isLocalhost || window.location.hostname.includes('spaceinvaders.earth') || window.location.hostname.includes('vercel.app')) ? '/' : '/3dinvaders/';
   const textureFiles = [
     `${BASE}five.png`,
     `${BASE}four.png`,
@@ -280,7 +280,7 @@ function MysterySprite({ position }) {
   // Detect if we're on localhost (dev) or production
   const isLocalhost = typeof window !== 'undefined' && 
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const BASE = isLocalhost ? '/' : '/3dinvaders/';
+  const BASE = (isLocalhost || window.location.hostname.includes('spaceinvaders.earth') || window.location.hostname.includes('vercel.app')) ? '/' : '/3dinvaders/';
   const texturePath = `${BASE}mystery.png`;
 
   useEffect(() => {
