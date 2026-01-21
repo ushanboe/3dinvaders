@@ -612,48 +612,44 @@ function getLevelSpeed(level) {
 
 // Animated Starfield Background
 function Starfield() {
-  const starsRef = useRef();
-  const stars = useMemo(() => {
-    const positions = [];
+  const pointsRef = useRef();
+  const speedsRef = useRef([]);
+
+  // Create geometry once on mount
+  const geometry = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(500 * 3);
     const speeds = [];
+
     for (let i = 0; i < 500; i++) {
-      positions.push(
-        (Math.random() - 0.5) * 100,  // x
-        (Math.random() - 0.5) * 60,   // y
-        -20 - Math.random() * 30      // z (behind everything)
-      );
+      positions[i * 3] = (Math.random() - 0.5) * 100;      // x
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 60;   // y  
+      positions[i * 3 + 2] = -20 - Math.random() * 30;     // z (behind everything)
       speeds.push(0.02 + Math.random() * 0.05);
     }
-    return { positions: new Float32Array(positions), speeds };
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    speedsRef.current = speeds;
+    return geo;
   }, []);
 
   useFrame(() => {
-    if (!starsRef.current) return;
-    if (!starsRef.current.geometry) return;
-    if (!starsRef.current.geometry.attributes) return;
-    if (!starsRef.current.geometry.attributes.position) return;
-    const positions = starsRef.current.geometry.attributes.position.array;
-    if (!positions) return;
-    for (let i = 0; i < positions.length; i += 3) {
-      positions[i + 1] -= stars.speeds[i / 3]; // Move down
-      if (positions[i + 1] < -30) {
-        positions[i + 1] = 30; // Reset to top
-        positions[i] = (Math.random() - 0.5) * 100; // Randomize x
+    if (!geometry || !geometry.attributes || !geometry.attributes.position) return;
+    const positions = geometry.attributes.position.array;
+    const speeds = speedsRef.current;
+
+    for (let i = 0; i < 500; i++) {
+      positions[i * 3 + 1] -= speeds[i]; // Move down
+      if (positions[i * 3 + 1] < -30) {
+        positions[i * 3 + 1] = 30; // Reset to top
+        positions[i * 3] = (Math.random() - 0.5) * 100; // Randomize x
       }
     }
-    starsRef.current.geometry.attributes.position.needsUpdate = true;
+    geometry.attributes.position.needsUpdate = true;
   });
 
   return (
-    <points ref={starsRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={stars.positions.length / 3}
-          array={stars.positions}
-          itemSize={3}
-        />
-      </bufferGeometry>
+    <points ref={pointsRef} geometry={geometry}>
       <pointsMaterial size={0.15} color="#ffffff" transparent opacity={0.8} sizeAttenuation />
     </points>
   );
