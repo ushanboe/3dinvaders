@@ -629,7 +629,11 @@ function Starfield() {
 
   useFrame(() => {
     if (!starsRef.current) return;
+    if (!starsRef.current.geometry) return;
+    if (!starsRef.current.geometry.attributes) return;
+    if (!starsRef.current.geometry.attributes.position) return;
     const positions = starsRef.current.geometry.attributes.position.array;
+    if (!positions) return;
     for (let i = 0; i < positions.length; i += 3) {
       positions[i + 1] -= stars.speeds[i / 3]; // Move down
       if (positions[i + 1] < -30) {
