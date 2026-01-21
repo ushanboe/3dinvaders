@@ -1492,21 +1492,21 @@ export default function App() {
         }}>
           <h1 style={{ 
             color: '#0ff', 
-            fontFamily: 'monospace', 
+            fontFamily: "'Press Start 2P', monospace", 
             fontSize: '42px',
             textShadow: '0 0 20px #0ff, 0 0 40px #0ff',
             textAlign: 'center',
             marginBottom: '10px'
-          }}>👾 SPACE INVADERS 👾</h1>
+          }}>SpaceInvaders.Earth</h1>
           <p style={{ 
             color: '#ff0', 
-            fontFamily: 'monospace', 
+            fontFamily: "'Press Start 2P', monospace", 
             fontSize: '18px',
             textAlign: 'center',
             marginBottom: '30px'
           }}>3D EDITION - 10 LEVELS</p>
           
-          <div style={{ color: '#aaa', fontFamily: 'monospace', fontSize: '14px', textAlign: 'center', marginBottom: '30px' }}>
+          <div style={{ color: '#aaa', fontFamily: "'Press Start 2P', monospace", fontSize: '14px', textAlign: 'center', marginBottom: '30px' }}>
             <p>🎮 PC: Arrow keys / WASD to move, SPACE to shoot</p>
             <p>📱 Mobile: Use on-screen buttons</p>
             <p style={{ color: '#f0f', marginTop: '10px' }}>👾 Watch for the MYSTERY INVADER - 1000 PTS!</p>
@@ -1514,7 +1514,7 @@ export default function App() {
           </div>
           
           {highScore > 0 && (
-            <p style={{ color: '#f0f', fontFamily: 'monospace', fontSize: '16px', marginBottom: '20px' }}>
+            <p style={{ color: '#f0f', fontFamily: "'Press Start 2P', monospace", fontSize: '16px', marginBottom: '20px' }}>
               🏆 High Score: {highScore}
             </p>
           )}
@@ -1524,7 +1524,7 @@ export default function App() {
             style={{
               padding: '20px 50px',
               fontSize: '24px',
-              fontFamily: 'monospace',
+              fontFamily: "'Press Start 2P', monospace",
               background: 'linear-gradient(to bottom, #00ffff, #0088ff)',
               border: 'none',
               color: '#000',
@@ -1545,7 +1545,7 @@ export default function App() {
           top: 10,
           left: 10,
           color: '#0ff',
-          fontFamily: 'monospace',
+          fontFamily: "'Press Start 2P', monospace",
           fontSize: '18px',
           zIndex: 100,
           textShadow: '0 0 10px #0ff, 0 0 20px #0ff'
@@ -1566,7 +1566,7 @@ export default function App() {
           left: '50%',
           transform: 'translate(-50%, -50%)',
           color: '#ff00ff',
-          fontFamily: 'monospace',
+          fontFamily: "'Press Start 2P', monospace",
           fontSize: '32px',
           textShadow: '0 0 20px #ff00ff, 0 0 40px #ff00ff',
           zIndex: 150,
@@ -1587,7 +1587,7 @@ export default function App() {
             border: '2px solid #0ff',
             color: '#0ff',
             padding: '10px 15px',
-            fontFamily: 'monospace',
+            fontFamily: "'Press Start 2P', monospace",
             fontSize: '16px',
             cursor: 'pointer',
             zIndex: 100,
@@ -1607,7 +1607,7 @@ export default function App() {
           left: '50%',
           transform: 'translate(-50%, -50%)',
           color: '#0ff',
-          fontFamily: 'monospace',
+          fontFamily: "'Press Start 2P', monospace",
           fontSize: '36px',
           textShadow: '0 0 20px #0ff',
           zIndex: 150
@@ -1631,15 +1631,15 @@ export default function App() {
         }}>
           <h1 style={{ 
             color: '#0ff', 
-            fontFamily: 'monospace', 
+            fontFamily: "'Press Start 2P', monospace", 
             fontSize: '48px',
             textShadow: '0 0 20px #0ff, 0 0 40px #0ff',
             animation: 'pulse 0.5s infinite'
           }}>🎉 LEVEL {level} COMPLETE! 🎉</h1>
-          <p style={{ color: '#ff0', fontFamily: 'monospace', fontSize: '28px', marginTop: '20px' }}>
+          <p style={{ color: '#ff0', fontFamily: "'Press Start 2P', monospace", fontSize: '28px', marginTop: '20px' }}>
             GET READY FOR LEVEL {level + 1}!
           </p>
-          <p style={{ color: '#f0f', fontFamily: 'monospace', fontSize: '20px', marginTop: '10px' }}>
+          <p style={{ color: '#f0f', fontFamily: "'Press Start 2P', monospace", fontSize: '20px', marginTop: '10px' }}>
             Speed: {Math.round(getLevelSpeed(level + 1) * 100)}%
           </p>
         </div>
@@ -1665,7 +1665,7 @@ export default function App() {
           }}>
             <div style={{
               fontSize: "42px",
-              fontFamily: "monospace",
+              fontFamily: "'Press Start 2P', monospace",
               fontWeight: "bold",
               color: "#000",
               textShadow: "2px 2px 0 #fff"
@@ -1674,7 +1674,7 @@ export default function App() {
             </div>
             <div style={{
               fontSize: "32px",
-              fontFamily: "monospace",
+              fontFamily: "'Press Start 2P', monospace",
               fontWeight: "bold",
               color: "#000",
               marginTop: "10px"
@@ -1702,19 +1702,19 @@ export default function App() {
         }}>
           <h1 style={{ 
             color: '#0ff', 
-            fontFamily: 'monospace', 
+            fontFamily: "'Press Start 2P', monospace", 
             fontSize: '48px',
             textShadow: '0 0 20px #0ff, 0 0 40px #0ff, 0 0 60px #00ffff',
             animation: 'pulse 1s infinite'
           }}>🎉 VICTORY! 🎉</h1>
-          <p style={{ color: '#ff0', fontFamily: 'monospace', fontSize: '28px', marginTop: '10px', textShadow: '0 0 10px #ff0' }}>
+          <p style={{ color: '#ff0', fontFamily: "'Press Start 2P', monospace", fontSize: '28px', marginTop: '10px', textShadow: '0 0 10px #ff0' }}>
             ALL 10 LEVELS COMPLETE!
           </p>
-          <p style={{ color: '#0ff', fontFamily: 'monospace', fontSize: '24px', marginTop: '20px' }}>
+          <p style={{ color: '#0ff', fontFamily: "'Press Start 2P', monospace", fontSize: '24px', marginTop: '20px' }}>
             Final Score: {score}
           </p>
           {score >= highScore && score > 0 && (
-            <p style={{ color: '#f0f', fontFamily: 'monospace', fontSize: '20px', marginTop: '10px', textShadow: '0 0 15px #f0f' }}>
+            <p style={{ color: '#f0f', fontFamily: "'Press Start 2P', monospace", fontSize: '20px', marginTop: '10px', textShadow: '0 0 15px #f0f' }}>
               🏆 NEW HIGH SCORE! 🏆
             </p>
           )}
@@ -1724,7 +1724,7 @@ export default function App() {
               marginTop: '30px',
               padding: '15px 30px',
               fontSize: '20px',
-              fontFamily: 'monospace',
+              fontFamily: "'Press Start 2P', monospace",
               background: 'linear-gradient(to bottom, #00ffff, #0088ff)',
               border: 'none',
               color: '#000',
@@ -1754,9 +1754,9 @@ export default function App() {
           overflow: 'auto',
           padding: '20px'
         }}>
-          <h1 style={{ color: '#f00', fontFamily: 'monospace', fontSize: '48px', textShadow: '0 0 20px #f00', margin: '10px 0' }}>GAME OVER</h1>
+          <h1 style={{ color: '#f00', fontFamily: "'Press Start 2P', monospace", fontSize: '48px', textShadow: '0 0 20px #f00', margin: '10px 0' }}>GAME OVER</h1>
 
-          <div style={{ color: '#0ff', fontFamily: 'monospace', fontSize: '20px', textAlign: 'center', margin: '10px 0' }}>
+          <div style={{ color: '#0ff', fontFamily: "'Press Start 2P', monospace", fontSize: '20px', textAlign: 'center', margin: '10px 0' }}>
             <div>Level: {level} | Score: {score}</div>
             <div>Accuracy: {shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0}% ({shotsHit}/{shotsFired})</div>
           </div>
@@ -1768,7 +1768,7 @@ export default function App() {
                 margin: '10px 0',
                 padding: '10px 20px',
                 fontSize: '16px',
-                fontFamily: 'monospace',
+                fontFamily: "'Press Start 2P', monospace",
                 background: 'linear-gradient(to bottom, #44ff44, #00cc00)',
                 border: 'none',
                 color: '#000',
@@ -1802,7 +1802,7 @@ export default function App() {
                 style={{
                   padding: '10px',
                   fontSize: '18px',
-                  fontFamily: 'monospace',
+                  fontFamily: "'Press Start 2P', monospace",
                   background: '#001',
                   border: '2px solid #0ff',
                   color: '#0ff',
@@ -1827,7 +1827,7 @@ export default function App() {
                   marginLeft: '10px',
                   padding: '10px 15px',
                   fontSize: '16px',
-                  fontFamily: 'monospace',
+                  fontFamily: "'Press Start 2P', monospace",
                   background: 'linear-gradient(to bottom, #44ff44, #00cc00)',
                   border: 'none',
                   color: '#000',
@@ -1840,8 +1840,8 @@ export default function App() {
 
           {topScores.length > 0 && (
             <div style={{ margin: '15px 0', textAlign: 'center' }}>
-              <h2 style={{ color: '#ff0', fontFamily: 'monospace', fontSize: '24px', textShadow: '0 0 10px #ff0', margin: '10px 0' }}>🏆 TOP SCORES 🏆</h2>
-              <table style={{ fontFamily: 'monospace', fontSize: '14px', borderCollapse: 'collapse' }}>
+              <h2 style={{ color: '#ff0', fontFamily: "'Press Start 2P', monospace", fontSize: '24px', textShadow: '0 0 10px #ff0', margin: '10px 0' }}>🏆 TOP SCORES 🏆</h2>
+              <table style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '14px', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ color: '#ff0' }}>
                     <th style={{ padding: '5px 10px' }}>#</th>
@@ -1872,7 +1872,7 @@ export default function App() {
               marginTop: '15px',
               padding: '15px 30px',
               fontSize: '20px',
-              fontFamily: 'monospace',
+              fontFamily: "'Press Start 2P', monospace",
               background: 'linear-gradient(to bottom, #ff4444, #cc0000)',
               border: 'none',
               color: '#fff',

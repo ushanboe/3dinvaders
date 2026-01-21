@@ -4,11 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#000000" />
-    <meta name="description" content="3D Space Invaders PWA Game" />
+    <meta name="description" content="SpaceInvaders.Earth - 3D Space Invaders PWA Game" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="/manifest.json" />
-    <title>Space Invaders 3D</title>
+    <!-- Retro Arcade Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <title>SpaceInvaders.Earth</title>
     <style>
       * {
         margin: 0;
@@ -21,6 +25,15 @@
         overflow: hidden;
         background: #000;
         touch-action: none;
+        font-family: 'Press Start 2P', monospace;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(1.02); }
+      }
+      @keyframes glow {
+        0%, 100% { text-shadow: 0 0 10px currentColor, 0 0 20px currentColor; }
+        50% { text-shadow: 0 0 20px currentColor, 0 0 40px currentColor, 0 0 60px currentColor; }
       }
     </style>
   </head>

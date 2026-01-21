@@ -1,7 +1,7 @@
 {
-  "name": "Space Invaders 3D",
-  "short_name": "Invaders3D",
-  "description": "3D Space Invaders game built with React and Three.js",
+  "name": "SpaceInvaders.Earth",
+  "short_name": "SpaceInvaders",
+  "description": "SpaceInvaders.Earth - Classic 3D Space Invaders arcade game",
   "start_url": "/",
   "display": "fullscreen",
   "orientation": "portrait",
