@@ -801,7 +801,8 @@ function Game({ gameState, gameActions }) {
       z: 0
     }]);
     playSound('shoot');
-  }, [playSound, gameStarted, showLevelUp]);
+    setShotsFired(prev => prev + 1);
+  }, [playSound, gameStarted, showLevelUp, setShotsFired]);
 
   useEffect(() => {
     window.gameShoot = shoot;
