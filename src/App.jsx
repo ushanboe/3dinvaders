@@ -1,5 +1,6 @@
 import React, { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { Stars } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Sound effects
@@ -610,48 +611,18 @@ function getLevelSpeed(level) {
 
 // Main game component
 
-// Animated Starfield Background
+// Animated Starfield Background - using drei's Stars component
 function Starfield() {
-  const pointsRef = useRef();
-  const speedsRef = useRef([]);
-
-  // Create geometry once on mount
-  const geometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    const positions = new Float32Array(500 * 3);
-    const speeds = [];
-
-    for (let i = 0; i < 500; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 100;      // x
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 60;   // y  
-      positions[i * 3 + 2] = -20 - Math.random() * 30;     // z (behind everything)
-      speeds.push(0.02 + Math.random() * 0.05);
-    }
-
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    speedsRef.current = speeds;
-    return geo;
-  }, []);
-
-  useFrame(() => {
-    if (!geometry || !geometry.attributes || !geometry.attributes.position) return;
-    const positions = geometry.attributes.position.array;
-    const speeds = speedsRef.current;
-
-    for (let i = 0; i < 500; i++) {
-      positions[i * 3 + 1] -= speeds[i]; // Move down
-      if (positions[i * 3 + 1] < -30) {
-        positions[i * 3 + 1] = 30; // Reset to top
-        positions[i * 3] = (Math.random() - 0.5) * 100; // Randomize x
-      }
-    }
-    geometry.attributes.position.needsUpdate = true;
-  });
-
   return (
-    <points ref={pointsRef} geometry={geometry}>
-      <pointsMaterial size={0.15} color="#ffffff" transparent opacity={0.8} sizeAttenuation />
-    </points>
+    <Stars 
+      radius={50} 
+      depth={50} 
+      count={500} 
+      factor={4} 
+      saturation={0} 
+      fade 
+      speed={1}
+    />
   );
 }
 
