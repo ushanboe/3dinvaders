@@ -1950,6 +1950,8 @@ export default function App() {
       )}
 
       <Canvas camera={{ position: [0, 2, 30], fov: 50 }}>
+        {/* Animated starfield background */}
+        <Starfield />
         <Suspense fallback={null}>
           <Game gameState={gameState} gameActions={gameActions} />
         </Suspense>
