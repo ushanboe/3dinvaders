@@ -694,7 +694,7 @@ function Game({ gameState, gameActions }) {
   
   const LEFT_BOUNDARY = -14;
   const RIGHT_BOUNDARY = 14;
-  const PLAYER_LIMIT = 13;
+  const PLAYER_LIMIT = 15;
   const DROP_AMOUNT = 0.6;
   const MOVE_SPEED = 0.6;
   
@@ -1830,8 +1830,8 @@ export default function App() {
         }}>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
-              onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.6, -13)); }}
-              onMouseDown={() => setPlayerX(x => Math.max(x - 0.6, -13))}
+              onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.max(x - 0.6, -15)); }}
+              onMouseDown={() => setPlayerX(x => Math.max(x - 0.6, -15))}
               style={{
                 width: '70px',
                 height: '70px',
@@ -1846,8 +1846,8 @@ export default function App() {
               }}
             >◀</button>
             <button
-              onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.6, 13)); }}
-              onMouseDown={() => setPlayerX(x => Math.min(x + 0.6, 13))}
+              onTouchStart={(e) => { e.preventDefault(); setPlayerX(x => Math.min(x + 0.6, 15)); }}
+              onMouseDown={() => setPlayerX(x => Math.min(x + 0.6, 15))}
               style={{
                 width: '70px',
                 height: '70px',
