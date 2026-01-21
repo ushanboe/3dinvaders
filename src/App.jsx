@@ -656,8 +656,8 @@ function Starfield() {
 }
 
 function Game({ gameState, gameActions }) {
-  const { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator } = gameState;
-  const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator, setShotsFired, setShotsHit, setDiveKillCount, setCurrentDiveIds } = gameActions;
+  const { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator, currentDiveIds } = gameState;
+  const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator, setShotsFired, setShotsHit, setDiveKillCount, setCurrentDiveIds, setShowTopGunBonus } = gameActions;
   
   const [enemies, setEnemies] = useState([]);
   const [bullets, setBullets] = useState([]);
@@ -911,6 +911,8 @@ function Game({ gameState, gameActions }) {
           const newDiveDirection = Math.random() > 0.5 ? 1 : -1;
           setDiveDirection(newDiveDirection);
           setDivingEnemies(diveIds);
+          setCurrentDiveIds(diveIds);
+          setDiveKillCount(0);
           
           // Set up dive parameters for each enemy
           // Phase 0: Move to staging position (top corner)
@@ -1246,6 +1248,31 @@ function Game({ gameState, gameActions }) {
           return newScore;
         });
         setShotsHit(prev => prev + hitEnemyIds.size);
+        
+        // Check for diving enemy kills and TOP GUN bonus
+        const currentDiveIdsNow = currentDiveIds;
+        const diveKillsThisFrame = [...hitEnemyIds].filter(id => currentDiveIdsNow.includes(id)).length;
+        if (diveKillsThisFrame > 0) {
+          setDiveKillCount(prev => {
+            const newCount = prev + diveKillsThisFrame;
+            if (newCount >= 3) {
+              // All 3 diving enemies killed - award TOP GUN bonus!
+              setScore(s => {
+                const bonusScore = s + 500;
+                if (bonusScore > highScore) {
+                  setHighScore(bonusScore);
+                  localStorage.setItem("highScore", bonusScore.toString());
+                }
+                return bonusScore;
+              });
+              setShowTopGunBonus(true);
+              playSound("victory");
+              setTimeout(() => setShowTopGunBonus(false), 2000);
+              setCurrentDiveIds([]);
+            }
+            return newCount;
+          });
+        }
       } else if (hitBulletIds.size > 0) {
         setBullets(prev => prev.filter(b => !hitBulletIds.has(b.id)));
       }
@@ -1419,6 +1446,7 @@ export default function App() {
   const [level, setLevel] = useState(1);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showMysteryIndicator, setShowMysteryIndicator] = useState(false);
+  const [showTopGunBonus, setShowTopGunBonus] = useState(false);
   const [highScore, setHighScore] = useState(() => {
     return parseInt(localStorage.getItem('highScore') || '0');
   });
@@ -1441,8 +1469,8 @@ export default function App() {
     setGameStarted(true);
   };
 
-  const gameState = { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator, shotsFired, shotsHit, diveKillCount, currentDiveIds };
-  const gameActions = { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator, setShotsFired, setShotsHit, setDiveKillCount, setCurrentDiveIds };
+  const gameState = { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator, shotsFired, shotsHit, diveKillCount, currentDiveIds, showTopGunBonus };
+  const gameActions = { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator, setShotsFired, setShotsHit, setDiveKillCount, setCurrentDiveIds, setShowTopGunBonus };
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: 'linear-gradient(to bottom, #000011, #000033)', touchAction: 'none' }}>
@@ -1614,6 +1642,46 @@ export default function App() {
           <p style={{ color: '#f0f', fontFamily: 'monospace', fontSize: '20px', marginTop: '10px' }}>
             Speed: {Math.round(getLevelSpeed(level + 1) * 100)}%
           </p>
+        </div>
+      )}
+
+            {/* TOP GUN BONUS popup */}
+      {showTopGunBonus && (
+        <div style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 250,
+          textAlign: "center",
+          animation: "pulse 0.3s infinite"
+        }}>
+          <div style={{
+            background: "linear-gradient(135deg, #ff0 0%, #f80 50%, #f00 100%)",
+            padding: "20px 40px",
+            borderRadius: "15px",
+            border: "4px solid #fff",
+            boxShadow: "0 0 30px #ff0, 0 0 60px #f80, 0 0 90px #f00"
+          }}>
+            <div style={{
+              fontSize: "42px",
+              fontFamily: "monospace",
+              fontWeight: "bold",
+              color: "#000",
+              textShadow: "2px 2px 0 #fff"
+            }}>
+              🎯 TOP GUN BONUS! 🎯
+            </div>
+            <div style={{
+              fontSize: "32px",
+              fontFamily: "monospace",
+              fontWeight: "bold",
+              color: "#000",
+              marginTop: "10px"
+            }}>
+              +500 POINTS!
+            </div>
+          </div>
         </div>
       )}
 
