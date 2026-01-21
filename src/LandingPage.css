@@ -76,6 +76,115 @@
   100% { opacity: 0.98; }
 }
 
+
+/* Terminal Window Container */
+.terminal-window {
+  background: rgba(0, 0, 0, 0.9);
+  border: 3px solid var(--neon-green);
+  border-radius: 15px;
+  padding: 0;
+  width: 90%;
+  max-width: 1000px;
+  margin: 60px auto;
+  box-shadow:
+    0 0 30px rgba(0, 255, 65, 0.4),
+    0 0 60px rgba(0, 255, 65, 0.2),
+    inset 0 0 30px rgba(0, 255, 65, 0.1);
+  overflow: hidden;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px;
+  background: rgba(0, 255, 65, 0.1);
+  border-bottom: 2px solid var(--neon-green);
+}
+
+.terminal-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.terminal-button {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+}
+
+.terminal-button.red { background: #ff5f56; }
+.terminal-button.yellow { background: #ffbd2e; }
+.terminal-button.green { background: #27ca40; }
+
+.terminal-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.7rem;
+  color: var(--neon-green);
+  margin-left: auto;
+  opacity: 0.8;
+}
+
+.terminal-body {
+  padding: 30px 40px;
+  min-height: 300px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.terminal-messages {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.65rem, 1.8vw, 0.9rem);
+  line-height: 2.4;
+  color: var(--neon-green);
+  text-align: left;
+}
+
+.terminal-line {
+  margin-bottom: 8px;
+  opacity: 0;
+  animation: fadeInLine 0.3s forwards;
+}
+
+.terminal-line.header {
+  color: var(--neon-blue);
+  font-size: 1.1em;
+  margin-bottom: 15px;
+}
+
+.terminal-line.priority {
+  color: var(--neon-red);
+  animation: blink-red 1s ease-in-out infinite;
+}
+
+.terminal-line.date {
+  color: var(--neon-blue);
+}
+
+.terminal-line.critical {
+  color: var(--neon-red);
+  font-weight: bold;
+  text-shadow: 0 0 10px var(--neon-red);
+}
+
+.terminal-line.highlight {
+  color: var(--neon-yellow);
+}
+
+.terminal-line.mission {
+  color: var(--neon-purple);
+  font-size: 1.05em;
+}
+
+@keyframes fadeInLine {
+  to { opacity: 1; }
+}
+
+@keyframes blink-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 /* Main Container */
 .landing-page .container {
   position: relative;
@@ -182,9 +291,10 @@
 
 .terminal-content {
   font-family: 'Press Start 2P', monospace;
-  font-size: clamp(0.5rem, 1.5vw, 0.75rem);
-  line-height: 2.2;
+  font-size: clamp(0.7rem, 2vw, 1rem);
+  line-height: 2.5;
   color: var(--neon-green);
+  text-align: left;
 }
 
 .terminal-content .date {
