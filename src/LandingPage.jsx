@@ -1,165 +1,229 @@
-import { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './LandingPage.css';
 
-export default function LandingPage() {
-  const navigate = useNavigate();
-  const starfieldRef = useRef(null);
-  const audioContextRef = useRef(null);
+// Typewriter component for terminal effect
+const Typewriter = ({ text, speed = 30, delay = 0, onComplete }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [started, setStarted] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
-    // Generate starfield
-    const starfield = starfieldRef.current;
-    if (starfield && starfield.children.length === 0) {
-      for (let i = 0; i < 200; i++) {
-        const star = document.createElement('div');
-        star.className = 'star';
-        star.style.left = Math.random() * 100 + '%';
-        star.style.top = Math.random() * 100 + '%';
-        const size = Math.random() * 3 + 1 + 'px';
-        star.style.width = size;
-        star.style.height = size;
-        star.style.animationDelay = Math.random() * 2 + 's';
-        star.style.animationDuration = (Math.random() * 2 + 1) + 's';
-        starfield.appendChild(star);
-      }
+    const startTimer = setTimeout(() => setStarted(true), delay);
+    return () => clearTimeout(startTimer);
+  }, [delay]);
+
+  useEffect(() => {
+    if (!started || completed) return;
+
+    if (displayedText.length < text.length) {
+      const timer = setTimeout(() => {
+        setDisplayedText(text.slice(0, displayedText.length + 1));
+      }, speed);
+      return () => clearTimeout(timer);
+    } else {
+      setCompleted(true);
+      if (onComplete) onComplete();
     }
+  }, [displayedText, text, speed, started, completed, onComplete]);
+
+  return (
+    <span>
+      {displayedText}
+      {started && !completed && <span className="cursor">▋</span>}
+    </span>
+  );
+};
+
+// Terminal message component
+const TerminalMessage = ({ lines, startDelay = 0 }) => {
+  const [currentLine, setCurrentLine] = useState(0);
+  const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setStarted(true), startDelay);
+    return () => clearTimeout(timer);
+  }, [startDelay]);
+
+  const handleLineComplete = () => {
+    if (currentLine < lines.length - 1) {
+      setTimeout(() => setCurrentLine(prev => prev + 1), 200);
+    }
+  };
+
+  if (!started) return null;
+
+  return (
+    <div className="terminal-messages">
+      {lines.slice(0, currentLine + 1).map((line, index) => (
+        <div key={index} className={`terminal-line ${line.type || ''}`}>
+          {line.prefix && <span className="line-prefix">{line.prefix}</span>}
+          {index < currentLine ? (
+            <span>{line.text}</span>
+          ) : (
+            <Typewriter 
+              text={line.text} 
+              speed={line.speed || 25} 
+              onComplete={handleLineComplete}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const LandingPage = () => {
+  const navigate = useNavigate();
+  const [showContent, setShowContent] = useState(false);
+
+  useEffect(() => {
+    setTimeout(() => setShowContent(true), 500);
   }, []);
 
-  const playLaunchSound = () => {
-    try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      const ctx = audioContextRef.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(200, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.3);
-    } catch (e) {
-      console.log('Audio not available');
-    }
-  };
-
-  const handleLaunch = () => {
-    playLaunchSound();
-    setTimeout(() => navigate('/game'), 200);
-  };
+  const terminalLines = [
+    { prefix: '[INCOMING TRANSMISSION]', text: '', type: 'header', speed: 0 },
+    { prefix: '>', text: ' PRIORITY: ALPHA-1', type: 'priority', speed: 20 },
+    { prefix: '>', text: ' DATE: 2087.06.15', type: 'date', speed: 20 },
+    { prefix: '>', text: ' STATUS: CRITICAL', type: 'critical', speed: 20 },
+    { text: '', type: 'spacer' },
+    { text: 'Earth Defense Command to all units...', speed: 30 },
+    { text: '', type: 'spacer' },
+    { text: 'The invasion has begun. Alien forces have breached', speed: 25 },
+    { text: 'our orbital defenses. Major cities are falling.', speed: 25 },
+    { text: '', type: 'spacer' },
+    { text: "You are humanity's last hope.", type: "highlight", speed: 40 },
+    { text: '', type: 'spacer' },
+    { text: 'As an elite TOP GUN astronaut, you have been', speed: 25 },
+    { text: 'selected for Operation: LAST STAND.', speed: 25 },
+    { text: '', type: 'spacer' },
+    { text: 'Your mission: Defend Earth at all costs.', type: 'mission', speed: 35 },
+    { text: 'Destroy the invaders before they reach the surface.', speed: 25 },
+    { text: '', type: 'spacer' },
+    { text: 'The fate of 10 billion souls rests in your hands.', type: 'highlight', speed: 30 },
+    { text: '', type: 'spacer' },
+    { text: '[END TRANSMISSION]', type: 'header', speed: 20 },
+  ];
 
   return (
     <div className="landing-page">
-      {/* CRT Overlay */}
-      <div className="crt-overlay crt-flicker"></div>
-
-      {/* Starfield */}
-      <div className="starfield" ref={starfieldRef}></div>
+      {/* Animated Starfield Background */}
+      <div className="starfield">
+        {[...Array(200)].map((_, i) => (
+          <div 
+            key={i} 
+            className="star" 
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 3}s`,
+              animationDuration: `${2 + Math.random() * 3}s`
+            }}
+          />
+        ))}
+      </div>
 
       {/* Floating Alien Ships */}
-      <div className="alien-ship" style={{ top: '15%', animationDelay: '0s' }}>👾</div>
-      <div className="alien-ship" style={{ top: '35%', animationDelay: '-7s' }}>👾</div>
-      <div className="alien-ship" style={{ top: '55%', animationDelay: '-14s' }}>👾</div>
+      <div className="floating-aliens">
+        {[...Array(5)].map((_, i) => (
+          <div 
+            key={i} 
+            className="floating-alien"
+            style={{
+              left: `${10 + i * 20}%`,
+              animationDelay: `${i * 0.5}s`
+            }}
+          >
+            👾
+          </div>
+        ))}
+      </div>
 
-      {/* Main Container */}
-      <div className="container">
-        {/* Header */}
-        <header className="header">
-          <h1 className="logo">SPACEINVADERS.EARTH</h1>
-          <p className="tagline">⚠ INCOMING TRANSMISSION ⚠</p>
+      {/* Main Content */}
+      <div className={`content-wrapper ${showContent ? 'visible' : ''}`}>
+        {/* Hero Section */}
+        <header className="hero-section">
+          <div className="glitch-container">
+            <h1 className="main-title glitch" data-text="SPACEINVADERS">
+              SPACEINVADERS
+            </h1>
+            <h2 className="sub-title">.EARTH</h2>
+          </div>
+          <p className="tagline">THE LAST STAND • EARTH 2087</p>
         </header>
 
-        {/* Story Section */}
-        <section className="story-section">
-          <div className="terminal">
+        {/* Terminal Narrative Section */}
+        <section className="narrative-section">
+          <div className="terminal-window">
             <div className="terminal-header">
-              <span className="terminal-dot red"></span>
-              <span className="terminal-dot yellow"></span>
-              <span className="terminal-dot green"></span>
-              <span className="terminal-title">EARTH_DEFENSE_COMMAND.exe</span>
+              <div className="terminal-buttons">
+                <span className="btn-red"></span>
+                <span className="btn-yellow"></span>
+                <span className="btn-green"></span>
+              </div>
+              <span className="terminal-title">EARTH_DEFENSE_CMD.exe</span>
             </div>
-            <div className="terminal-content">
-              <p><span className="date">[2087.12.24 - 03:47:22 UTC]</span></p>
-              <p><span className="command">&gt; PRIORITY: OMEGA</span></p>
-              <p><span className="command">&gt; CLASSIFICATION: EYES ONLY</span></p>
-              <br />
-              <p><span className="alert">⚠ ALERT: MASSIVE ALIEN FLEET DETECTED ⚠</span></p>
-              <br />
-              <p>They came without warning.</p>
-              <br />
-              <p>On Christmas Eve, 2087, humanity's deep space sensors detected an armada of <span className="highlight">10,000 hostile vessels</span> emerging from a wormhole near Jupiter.</p>
-              <br />
-              <p>Within hours, our orbital defense platforms were <span className="alert">DESTROYED</span>.</p>
-              <br />
-              <p>The invaders now descend upon Earth in waves, their formation unmistakable - the ancient pattern our ancestors once called <span className="highlight">"SPACE INVADERS"</span>.</p>
-              <br />
-              <p>Our last hope: the elite <span className="highlight">TOP GUN ASTRONAUT CORPS</span> - humanity's finest pilots, armed with experimental plasma cannons.</p>
-              <br />
-              <p><span className="command">&gt; MISSION STATUS:</span> <span className="alert">THE LAST STAND</span></p>
-              <p><span className="command">&gt; OBJECTIVE:</span> DEFEND EARTH AT ALL COSTS</p>
-              <p><span className="command">&gt; PILOT STATUS:</span> <span className="highlight">AWAITING YOUR COMMAND</span></p>
-              <br />
-              <p><span className="command">&gt; _</span><span className="cursor"></span></p>
+            <div className="terminal-body">
+              <div className="scanline"></div>
+              {showContent && <TerminalMessage lines={terminalLines} startDelay={1000} />}
             </div>
-          </div>
-
-          <div className="transmission">
-            <p className="transmission-text">/// END TRANSMISSION /// SIGNAL DEGRADING ///</p>
           </div>
         </section>
 
-        {/* Call to Action */}
+        {/* CTA Section */}
         <section className="cta-section">
-          <h2 className="cta-title">HUMANITY NEEDS YOU, PILOT</h2>
-          <button onClick={handleLaunch} className="play-button">🎮 LAUNCH MISSION</button>
-          <p className="play-subtitle">Free to play • No download required • Mobile ready</p>
+          <button 
+            className="play-button"
+            onClick={() => navigate('/game')}
+          >
+            <span className="button-text">🚀 LAUNCH MISSION</span>
+            <span className="button-subtext">BEGIN YOUR DEFENSE</span>
+          </button>
+
+          <div className="controls-hint">
+            <p>⌨️ ARROW KEYS or TOUCH to move</p>
+            <p>SPACE or TAP to fire</p>
+          </div>
         </section>
 
-        {/* Features */}
+        {/* Features Section */}
         <section className="features-section">
-          <h2 className="features-title">// MISSION BRIEFING //</h2>
+          <h3 className="section-title">// MISSION BRIEFING</h3>
           <div className="features-grid">
             <div className="feature-card">
-              <div className="feature-icon">🚀</div>
-              <h3 className="feature-title">3D COMBAT</h3>
-              <p className="feature-desc">Experience the classic invasion in stunning 3D with modern graphics and smooth 60fps gameplay</p>
+              <span className="feature-icon">🎮</span>
+              <h4>10 INTENSE LEVELS</h4>
+              <p>Progressive difficulty as the invasion intensifies</p>
             </div>
             <div className="feature-card">
-              <div className="feature-icon">📱</div>
-              <h3 className="feature-title">PLAY ANYWHERE</h3>
-              <p className="feature-desc">Desktop, tablet, or phone - defend Earth from any device with touch or keyboard controls</p>
+              <span className="feature-icon">👾</span>
+              <h4>MYSTERY INVADERS</h4>
+              <p>High-value targets worth 1000 points</p>
             </div>
             <div className="feature-card">
-              <div className="feature-icon">🏆</div>
-              <h3 className="feature-title">LEADERBOARDS</h3>
-              <p className="feature-desc">Compete for the highest score and prove you're Earth's greatest defender</p>
+              <span className="feature-icon">✈️</span>
+              <h4>TOP GUN BONUS</h4>
+              <p>Destroy dive formations for bonus points</p>
             </div>
             <div className="feature-card">
-              <div className="feature-icon">⚡</div>
-              <h3 className="feature-title">10 LEVELS</h3>
-              <p className="feature-desc">Progressive difficulty with mystery invaders, dive attacks, and the legendary Top Gun bonus</p>
+              <span className="feature-icon">🏆</span>
+              <h4>LEADERBOARD</h4>
+              <p>Compete for the highest score</p>
             </div>
           </div>
-        </section>
-
-        {/* Premium Section */}
-        <section className="premium-section">
-          <span className="premium-badge">★ PREMIUM ★</span>
-          <h2 className="premium-title">ELITE PILOT PROGRAM</h2>
-          <p className="premium-desc">Unlock exclusive ships, power-ups, multiplayer battles, and custom invasion scenarios. Join the elite defenders of Earth.</p>
-          <div className="coming-soon">COMING SOON</div>
         </section>
 
         {/* Footer */}
-        <footer className="footer">
-          <p className="footer-text">© <span className="footer-year">2087</span> EARTH DEFENSE COMMAND • SPACEINVADERS.EARTH</p>
+        <footer className="landing-footer">
+          <p>© 2087 EARTH DEFENSE COMMAND</p>
+          <p className="footer-sub">A RETRO 3D EXPERIENCE</p>
         </footer>
       </div>
+
+      {/* CRT Effect Overlay */}
+      <div className="crt-overlay"></div>
     </div>
   );
-}
+};
+
+export default LandingPage;

@@ -456,3 +456,122 @@
     padding: 20px 40px;
   }
 }
+
+
+/* Typewriter Effect Styles */
+.cursor {
+  animation: blink 0.7s infinite;
+  color: #0f0;
+  font-weight: bold;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.terminal-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.terminal-line {
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: #0f0;
+  text-shadow: 0 0 5px #0f0;
+}
+
+.terminal-line.header {
+  color: #ff0;
+  text-shadow: 0 0 10px #ff0;
+  font-weight: bold;
+  margin: 0.5rem 0;
+}
+
+.terminal-line.priority {
+  color: #f80;
+}
+
+.terminal-line.date {
+  color: #0ff;
+}
+
+.terminal-line.critical {
+  color: #f00;
+  animation: pulse-red 1s infinite;
+}
+
+@keyframes pulse-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.terminal-line.spacer {
+  height: 0.5rem;
+}
+
+.terminal-line.highlight {
+  color: #fff;
+  text-shadow: 0 0 10px #fff, 0 0 20px #0ff;
+  font-weight: bold;
+}
+
+.terminal-line.mission {
+  color: #f0f;
+  text-shadow: 0 0 10px #f0f;
+  font-weight: bold;
+}
+
+.line-prefix {
+  color: #888;
+  margin-right: 0.5rem;
+}
+
+/* Make terminal body scrollable and taller */
+.terminal-body {
+  background: rgba(0, 20, 0, 0.9);
+  padding: 1.5rem;
+  min-height: 400px;
+  max-height: 500px;
+  overflow-y: auto;
+  position: relative;
+  font-family: 'Press Start 2P', monospace;
+}
+
+/* Custom scrollbar for terminal */
+.terminal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-body::-webkit-scrollbar-track {
+  background: #001100;
+}
+
+.terminal-body::-webkit-scrollbar-thumb {
+  background: #0f0;
+  border-radius: 4px;
+}
+
+.terminal-body::-webkit-scrollbar-thumb:hover {
+  background: #0a0;
+}
+
+/* Scanline effect */
+.scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(0, 255, 0, 0.1);
+  animation: scanline 4s linear infinite;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes scanline {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
