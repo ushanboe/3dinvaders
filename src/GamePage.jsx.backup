@@ -1537,7 +1537,6 @@ export default function GamePage() {
 
   // Remote multiplayer waiting overlay component
   const RemoteWaitingOverlay = () => {
-    console.log("[DEBUG] RemoteWaitingOverlay check:", { gameMode, waitingForOpponent, isMyTurn, opponentStatus, playerNum });
     if (gameMode !== 'remote' || !waitingForOpponent) return null;
 
     const opponent = playerNum === 1 ? player2Name : player1Name;
@@ -1601,7 +1600,7 @@ export default function GamePage() {
     console.log('Setting up Firebase subscription for game:', gameCode);
 
     const unsubscribe = subscribeToGame(gameCode, (gameData) => {
-      console.log('[DEBUG] Firebase update:', JSON.stringify(gameData, null, 2));
+      console.log('Firebase game data update:', gameData);
       setRemoteGameData(gameData);
 
       if (!gameData) return;
@@ -1615,7 +1614,6 @@ export default function GamePage() {
       // Determine if it's my turn
       const currentTurn = gameData.currentTurn || 1;
       const myTurn = currentTurn === playerNum;
-      console.log("[DEBUG] Turn check:", { currentTurn, playerNum, myTurn, waitingForOpponent });
       setIsMyTurn(myTurn);
 
       // If opponent finished their turn, update their stats and show transition
@@ -1659,7 +1657,6 @@ export default function GamePage() {
 
     // Player 1 starts first, Player 2 waits
     if (playerNum === 2 && !remoteGameData?.currentTurn) {
-      console.log("[DEBUG] Setting waitingForOpponent = true");
       setWaitingForOpponent(true);
     } else if (playerNum === 1) {
       setIsMyTurn(true);
@@ -1680,8 +1677,7 @@ export default function GamePage() {
     if (gameMode !== 'local' && gameMode !== 'remote') return;
     
     // Handle remote mode
-    if (gameMode === "remote") {
-      console.log("[DEBUG] handleMultiplayerTurnEnd REMOTE:", { result, playerNum, gameCode, isMyTurn, waitingForOpponent });
+    if (gameMode === 'remote') {
       const { score, level, reason } = result;
       
       console.log('Remote turn end:', { score, level, reason, playerNum });
@@ -1692,11 +1688,9 @@ export default function GamePage() {
       const newTotalScore = myStats.totalScore + score;
       
       // Update Firebase with my final score
-      console.log("[DEBUG] Calling finishPlayerTurn:", { gameCode, playerNum, newTotalScore, newRoundScores });
       finishPlayerTurn(gameCode, playerNum, newTotalScore, newRoundScores);
       
       // Switch turn to opponent
-      console.log("[DEBUG] Calling updateGameState to switch turn");
       updateGameState(gameCode, {
         currentTurn: playerNum === 1 ? 2 : 1
       });
@@ -1717,9 +1711,7 @@ export default function GamePage() {
       }
       
       // Show waiting overlay and reset game state
-      console.log("[DEBUG] Setting waitingForOpponent = true");
       setWaitingForOpponent(true);
-      console.log("[DEBUG] Setting isMyTurn = false");
       setIsMyTurn(false);
       setGameOver(false);
       setGameWon(false);

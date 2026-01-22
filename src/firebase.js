@@ -19,7 +19,7 @@ const database = getDatabase(app);
 
 // Generate a 6-character game code
 export const generateGameCode = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars like 0,O,1,I
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 6; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -29,11 +29,12 @@ export const generateGameCode = () => {
 
 // Create a new online game room
 export const createOnlineGame = async (playerName, totalRounds) => {
+  console.log('[DEBUG Firebase] createOnlineGame called:', { playerName, totalRounds });
   const gameCode = generateGameCode();
   const gameRef = ref(database, `spaceinvaders/${gameCode}`);
   
   const gameData = {
-    status: 'waiting', // waiting, playing, finished
+    status: 'waiting',
     totalRounds: totalRounds,
     currentRound: 1,
     player1: {
@@ -60,25 +61,29 @@ export const createOnlineGame = async (playerName, totalRounds) => {
       lives: 3,
       lastUpdate: Date.now()
     },
-    currentTurn: 1, // Which player's turn (1 or 2)
+    currentTurn: 1,
     winner: null,
     createdAt: Date.now()
   };
   
   await set(gameRef, gameData);
+  console.log('[DEBUG Firebase] Game created:', { gameCode, gameData });
   return { gameCode, gameRef: `spaceinvaders/${gameCode}` };
 };
 
 // Join an existing game
 export const joinOnlineGame = async (gameCode, playerName) => {
+  console.log('[DEBUG Firebase] joinOnlineGame called:', { gameCode, playerName });
   const gameRef = ref(database, `spaceinvaders/${gameCode}`);
   const snapshot = await get(gameRef);
   
   if (!snapshot.exists()) {
+    console.log('[DEBUG Firebase] Game not found:', gameCode);
     throw new Error('Game not found');
   }
   
   const gameData = snapshot.val();
+  console.log('[DEBUG Firebase] Found game:', gameData);
   
   if (gameData.player2.joined) {
     throw new Error('Game is full');
@@ -88,15 +93,15 @@ export const joinOnlineGame = async (gameCode, playerName) => {
     throw new Error('Game already started');
   }
   
-  // Join as player 2
   await update(gameRef, {
     'player2/name': playerName || 'Player 2',
     'player2/joined': true,
     'status': 'playing'
   });
   
-  return { 
-    gameCode, 
+  console.log('[DEBUG Firebase] Joined game successfully');
+  return {
+    gameCode,
     gameRef: `spaceinvaders/${gameCode}`,
     player1Name: gameData.player1.name,
     totalRounds: gameData.totalRounds
@@ -105,16 +110,21 @@ export const joinOnlineGame = async (gameCode, playerName) => {
 
 // Subscribe to game updates
 export const subscribeToGame = (gameCode, callback) => {
+  console.log('[DEBUG Firebase] subscribeToGame called:', gameCode);
   const gameRef = ref(database, `spaceinvaders/${gameCode}`);
   return onValue(gameRef, (snapshot) => {
+    console.log('[DEBUG Firebase] onValue triggered, exists:', snapshot.exists());
     if (snapshot.exists()) {
-      callback(snapshot.val());
+      const data = snapshot.val();
+      console.log('[DEBUG Firebase] Game data received:', { currentTurn: data.currentTurn, status: data.status });
+      callback(data);
     }
   });
 };
 
 // Update player state during gameplay
 export const updatePlayerState = async (gameCode, playerNum, updates) => {
+  console.log('[DEBUG Firebase] updatePlayerState called:', { gameCode, playerNum, updates });
   const playerKey = playerNum === 1 ? 'player1' : 'player2';
   const gameRef = ref(database, `spaceinvaders/${gameCode}`);
   
@@ -125,16 +135,20 @@ export const updatePlayerState = async (gameCode, playerNum, updates) => {
   updateData[`${playerKey}/lastUpdate`] = Date.now();
   
   await update(gameRef, updateData);
+  console.log('[DEBUG Firebase] updatePlayerState completed');
 };
 
 // Update game state (for turn changes, round changes, etc.)
 export const updateGameState = async (gameCode, updates) => {
+  console.log('[DEBUG Firebase] updateGameState called:', { gameCode, updates });
   const gameRef = ref(database, `spaceinvaders/${gameCode}`);
   await update(gameRef, updates);
+  console.log('[DEBUG Firebase] updateGameState completed');
 };
 
 // Mark player as finished their turn
 export const finishPlayerTurn = async (gameCode, playerNum, score, roundScores) => {
+  console.log('[DEBUG Firebase] finishPlayerTurn called:', { gameCode, playerNum, score, roundScores });
   const playerKey = playerNum === 1 ? 'player1' : 'player2';
   const gameRef = ref(database, `spaceinvaders/${gameCode}`);
   
@@ -144,10 +158,12 @@ export const finishPlayerTurn = async (gameCode, playerNum, score, roundScores) 
     [`${playerKey}/totalScore`]: score,
     [`${playerKey}/roundScores`]: roundScores
   });
+  console.log('[DEBUG Firebase] finishPlayerTurn completed');
 };
 
 // Get current game state
 export const getGameState = async (gameCode) => {
+  console.log('[DEBUG Firebase] getGameState called:', gameCode);
   const gameRef = ref(database, `spaceinvaders/${gameCode}`);
   const snapshot = await get(gameRef);
   
@@ -160,6 +176,7 @@ export const getGameState = async (gameCode) => {
 
 // Delete a game (cleanup)
 export const deleteGame = async (gameCode) => {
+  console.log('[DEBUG Firebase] deleteGame called:', gameCode);
   const gameRef = ref(database, `spaceinvaders/${gameCode}`);
   await remove(gameRef);
 };
