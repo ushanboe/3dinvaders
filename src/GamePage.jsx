@@ -629,7 +629,7 @@ function Starfield() {
   );
 }
 
-function Game({ gameState, gameActions }) {
+function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd }) {
   const { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator, currentDiveIds } = gameState;
   const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator, setShotsFired, setShotsHit, setDiveKillCount, setCurrentDiveIds, setShowTopGunBonus } = gameActions;
   
@@ -2118,7 +2118,7 @@ export default function GamePage() {
         {/* Animated starfield background */}
         <Starfield />
         <Suspense fallback={null}>
-          <Game gameState={gameState} gameActions={gameActions} />
+          <Game gameState={gameState} gameActions={gameActions} gameMode={gameMode} handleMultiplayerTurnEnd={handleMultiplayerTurnEnd} />
         </Suspense>
       </Canvas>
       
