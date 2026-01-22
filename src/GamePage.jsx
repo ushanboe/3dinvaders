@@ -1660,11 +1660,13 @@ export default function GamePage() {
       // Determine if it's my turn
       const currentTurn = gameData.currentTurn || 1;
       const myTurn = currentTurn === playerNum;
-      console.log("[DEBUG] Turn check:", { currentTurn, playerNum, myTurn, p1Rounds, p2Rounds, totalRoundsNeeded });
+      const wasMyTurn = prevIsMyTurnRef.current;
+      console.log("[DEBUG] Turn check:", { currentTurn, playerNum, myTurn, wasMyTurn, p1Rounds, p2Rounds, totalRoundsNeeded });
 
-      // Update turn state
-      if (myTurn && !isMyTurn) {
+      // Update turn state - use ref to track previous state for reliable detection
+      if (myTurn && !wasMyTurn) {
         console.log("[DEBUG] It's now my turn!");
+        prevIsMyTurnRef.current = true;
         setIsMyTurn(true);
         setWaitingForOpponent(false);
 
@@ -1694,15 +1696,19 @@ export default function GamePage() {
             }));
           }
         }
-      } else if (!myTurn && isMyTurn) {
+      } else if (!myTurn && wasMyTurn) {
         console.log("[DEBUG] No longer my turn, waiting for opponent");
+        prevIsMyTurnRef.current = false;
         setIsMyTurn(false);
         setWaitingForOpponent(true);
+      } else if (myTurn && wasMyTurn) {
+        // Already my turn, just make sure we're not waiting
+        setWaitingForOpponent(false);
       }
     });
 
     return () => unsubscribe();
-  }, [gameMode, gameCode, playerNum, isMyTurn]);
+  }, [gameMode, gameCode, playerNum]);
 
   // For remote mode: only start game if it's my turn
   useEffect(() => {
@@ -1777,10 +1783,12 @@ export default function GamePage() {
         return;
       }
 
-      // Switch turn to opponent
+      // Switch turn to opponent and reset their finished flag
       console.log("[DEBUG] Calling updateGameState to switch turn");
+      const nextPlayer = playerNum === 1 ? 'player2' : 'player1';
       await updateGameState(gameCode, {
-        currentTurn: playerNum === 1 ? 2 : 1
+        currentTurn: playerNum === 1 ? 2 : 1,
+        [`${nextPlayer}/finished`]: false
       });
 
       // Show waiting overlay and reset game state
