@@ -32,8 +32,6 @@ const TurnTransition = ({
   if (isFinalResult) {
     const p1Total = player1TotalScore || 0;
     const p2Total = player2TotalScore || 0;
-    const p1Rounds = player1RoundScores || [];
-    const p2Rounds = player2RoundScores || [];
 
     let winner = 0; // 0 = tie
     if (p1Total > p2Total) winner = 1;
@@ -78,7 +76,7 @@ const TurnTransition = ({
           {isTie ? "IT'S A TIE!" : `${winnerName} WINS!`}
         </div>
 
-        <div style={{ color: '#888', fontSize: '12px', marginBottom: '20px' }}>
+        <div style={{ color: '#888', fontSize: '12px', marginBottom: '30px' }}>
           After {totalRounds} rounds
         </div>
 
@@ -93,21 +91,18 @@ const TurnTransition = ({
             background: winner === 1 ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)',
             border: winner === 1 ? '3px solid #0f0' : '2px solid #666',
             borderRadius: '15px',
-            padding: '20px 30px',
+            padding: '25px 40px',
             textAlign: 'center',
             minWidth: '180px'
           }}>
-            <div style={{ color: '#0ff', fontSize: '16px', marginBottom: '10px' }}>
+            <div style={{ color: '#0ff', fontSize: '16px', marginBottom: '15px' }}>
               {player1Name}
             </div>
-            <div style={{ color: '#fff', fontSize: '24px', marginBottom: '10px' }}>
+            <div style={{ color: '#fff', fontSize: '28px' }}>
               {p1Total} pts
             </div>
-            <div style={{ color: '#888', fontSize: '10px' }}>
-              {p1Rounds.map((s, i) => `R${i+1}: ${s}`).join(' | ')}
-            </div>
             {winner === 1 && (
-              <div style={{ color: '#FFD700', fontSize: '24px', marginTop: '10px' }}>👑</div>
+              <div style={{ color: '#FFD700', fontSize: '24px', marginTop: '15px' }}>👑</div>
             )}
           </div>
 
@@ -126,27 +121,24 @@ const TurnTransition = ({
             background: winner === 2 ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)',
             border: winner === 2 ? '3px solid #0f0' : '2px solid #666',
             borderRadius: '15px',
-            padding: '20px 30px',
+            padding: '25px 40px',
             textAlign: 'center',
             minWidth: '180px'
           }}>
-            <div style={{ color: '#0ff', fontSize: '16px', marginBottom: '10px' }}>
+            <div style={{ color: '#0ff', fontSize: '16px', marginBottom: '15px' }}>
               {player2Name}
             </div>
-            <div style={{ color: '#fff', fontSize: '24px', marginBottom: '10px' }}>
+            <div style={{ color: '#fff', fontSize: '28px' }}>
               {p2Total} pts
             </div>
-            <div style={{ color: '#888', fontSize: '10px' }}>
-              {p2Rounds.map((s, i) => `R${i+1}: ${s}`).join(' | ')}
-            </div>
             {winner === 2 && (
-              <div style={{ color: '#FFD700', fontSize: '24px', marginTop: '10px' }}>👑</div>
+              <div style={{ color: '#FFD700', fontSize: '24px', marginTop: '15px' }}>👑</div>
             )}
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
+        <div style={{ display: 'flex', gap: '20px', marginTop: '30px' }}>
           <button
             onClick={onPlayAgain}
             style={{
@@ -260,7 +252,6 @@ const TurnTransition = ({
         }}>
           <div style={{ color: '#0ff', marginBottom: '5px' }}>{player1Name}</div>
           <div style={{ color: '#fff', fontSize: '20px' }}>{player1TotalScore} pts</div>
-          <div style={{ color: '#888', fontSize: '10px' }}>Total</div>
         </div>
         <div style={{
           padding: '15px 25px',
@@ -271,7 +262,6 @@ const TurnTransition = ({
         }}>
           <div style={{ color: '#0ff', marginBottom: '5px' }}>{player2Name}</div>
           <div style={{ color: '#fff', fontSize: '20px' }}>{player2TotalScore} pts</div>
-          <div style={{ color: '#888', fontSize: '10px' }}>Total</div>
         </div>
       </div>
 
