@@ -748,7 +748,7 @@ function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd, curr
         setGameWon(true);
         playSound('victory');
         // Multiplayer: trigger turn end on victory
-        if (gameMode === 'local') {
+        if (gameMode === 'local' || gameMode === 'remote') {
           setTimeout(() => {
             handleMultiplayerTurnEnd({
               levelCompleted: true,
@@ -758,7 +758,8 @@ function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd, curr
               gameOver: false,
               victory: true,
               shotsFired: shotsFired,
-              shotsHit: shotsHit
+              shotsHit: shotsHit,
+              reason: 'victory'
             });
           }, 1500);
         }
@@ -1129,7 +1130,7 @@ function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd, curr
             setGameOver(true);
             playSound('gameOver');
             // Multiplayer: trigger turn end on game over
-            if (gameMode === 'local') {
+            if (gameMode === 'local' || gameMode === 'remote') {
               setTimeout(() => {
                 handleMultiplayerTurnEnd({
                   levelCompleted: false,
@@ -1139,7 +1140,8 @@ function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd, curr
                   gameOver: true,
                   victory: false,
                   shotsFired: shotsFired,
-                  shotsHit: shotsHit
+                  shotsHit: shotsHit,
+                  reason: 'barrier'
                 });
               }, 1500);
             }
@@ -1370,7 +1372,7 @@ function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd, curr
               setGameOver(true);
               playSound('gameOver');
               // Multiplayer: trigger turn end on game over
-              if (gameMode === 'local') {
+              if (gameMode === 'local' || gameMode === 'remote') {
                 setTimeout(() => {
                   handleMultiplayerTurnEnd({
                     levelCompleted: false,
@@ -1380,7 +1382,8 @@ function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd, curr
                     gameOver: true,
                     victory: false,
                     shotsFired: shotsFired,
-                    shotsHit: shotsHit
+                    shotsHit: shotsHit,
+                    reason: 'lives'
                   });
                 }, 1500);
               }
@@ -1807,7 +1810,7 @@ export default function GamePage() {
 
     setTransitionData(transData);
     setShowTurnTransition(true);
-  }, [gameMode, currentPlayerTurn, currentRound, totalRounds, player1Stats, player2Stats, player1Name, player2Name]);
+  }, [gameMode, currentPlayerTurn, currentRound, totalRounds, player1Stats, player2Stats, player1Name, player2Name, playerNum, gameCode]);
 
   const confirmTurnTransition = useCallback(() => {
     if (transitionData?.isFinalResult) {
@@ -1888,7 +1891,7 @@ export default function GamePage() {
       {gameMode === 'remote' && waitingForOpponent && <RemoteWaitingOverlay />}
 
       {/* Start Screen */}
-      {!gameStarted && (
+      {!gameStarted && !(gameMode === 'remote' && waitingForOpponent) && (
         <div style={{
           position: 'absolute',
           top: 0,
