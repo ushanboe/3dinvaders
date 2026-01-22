@@ -1513,6 +1513,7 @@ export default function GamePage() {
   const [remoteGameData, setRemoteGameData] = useState(null);
   const [opponentStatus, setOpponentStatus] = useState('waiting');
   const [isMyTurn, setIsMyTurn] = useState(true);
+  const prevIsMyTurnRef = useRef(isMyTurn); // Track previous turn state for reliable detection
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [transitionData, setTransitionData] = useState(null);
   const [multiplayerGameFinished, setMultiplayerGameFinished] = useState(false);

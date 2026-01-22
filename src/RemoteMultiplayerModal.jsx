@@ -69,6 +69,19 @@ const RemoteMultiplayerModal = ({ onStartGame, onClose }) => {
       setError('Please enter a valid 6-character game code');
       return;
     }
+
+    // Validate player name is not the game code
+    const trimmedName = (playerName || '').trim();
+    if (trimmedName.toUpperCase() === code) {
+      setError('Player name cannot be the same as the game code');
+      return;
+    }
+
+    // Validate player name is not empty or too short
+    if (trimmedName.length < 2) {
+      setError('Please enter a player name (at least 2 characters)');
+      return;
+    }
     
     try {
       const result = await joinOnlineGame(code, playerName || 'Player 2');
