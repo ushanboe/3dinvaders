@@ -630,7 +630,7 @@ function Starfield() {
 }
 
 function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd }) {
-  const { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator, currentDiveIds } = gameState;
+  const { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator, currentDiveIds, shotsFired, shotsHit } = gameState;
   const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator, setShotsFired, setShotsHit, setDiveKillCount, setCurrentDiveIds, setShowTopGunBonus } = gameActions;
   
   const [enemies, setEnemies] = useState([]);
