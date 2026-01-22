@@ -1549,12 +1549,12 @@ export default function GamePage() {
     }
 
     const nextPlayer = currentPlayerTurn === 1 ? 2 : 1;
-    const nextPlayerStats = nextPlayer === 1 ? player1Stats : player2Stats;
     setCurrentPlayerTurn(nextPlayer);
 
+    // Always start fresh at Level 1 for the next player
     setScore(0);
     setLives(3);
-    setLevel(nextPlayerStats.currentLevel || 1);
+    setLevel(1);
     setGameOver(false);
     setGameWon(false);
     setGameStarted(true);
@@ -1562,7 +1562,7 @@ export default function GamePage() {
     setShotsHit(0);
     setShowTurnTransition(false);
     setTransitionData(null);
-  }, [transitionData, currentPlayerTurn, player1Stats, player2Stats]);
+  }, [transitionData, currentPlayerTurn]);
 
   const handleRematch = useCallback(() => {
     setCurrentPlayerTurn(1);

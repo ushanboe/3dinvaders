@@ -11,34 +11,33 @@ const TurnTransition = ({
   onMainMenu
 }) => {
   if (!transitionData) return null;
-  
+
+  // Extract data from transitionData - matching the structure from GamePage
   const {
-    type,
-    currentPlayer,
-    nextPlayer,
-    levelCompleted,
-    score,
-    level,
-    lives,
-    gameOver,
-    victory,
-    shotsFired,
-    shotsHit,
-    isGameFinished,
-    winner
+    playerNumber,      // Current player (1 or 2)
+    nextPlayerNumber,  // Next player (1 or 2)
+    playerName,        // Current player's name
+    nextPlayerName,    // Next player's name
+    result,            // Contains score, level, lives, gameOver, victory, shotsFired, shotsHit, accuracy
+    isFinalResult,     // True if both players have finished
+    switchingPlayer    // True if switching to next player
   } = transitionData;
-  
-  const accuracy = shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0;
-  const currentPlayerName = currentPlayer === 1 ? player1Name : player2Name;
-  const nextPlayerName = nextPlayer === 1 ? player1Name : player2Name;
-  
+
+  // Extract result data
+  const { score, level, lives, gameOver, victory, shotsFired, shotsHit, accuracy } = result || {};
+
   // Game finished - show final results
-  if (isGameFinished) {
-    const p1Score = player1Stats.totalScore;
-    const p2Score = player2Stats.totalScore;
+  if (isFinalResult) {
+    const p1Score = player1Stats.score;
+    const p2Score = player2Stats.score;
+
+    let winner = 0; // 0 = tie
+    if (p1Score > p2Score) winner = 1;
+    else if (p2Score > p1Score) winner = 2;
+
     const winnerName = winner === 1 ? player1Name : winner === 2 ? player2Name : null;
     const isTie = winner === 0;
-    
+
     return (
       <div style={{
         position: 'fixed',
@@ -62,9 +61,9 @@ const TurnTransition = ({
           marginBottom: '20px',
           animation: 'pulse 1s infinite'
         }}>
-          🏆 GAME OVER 🏆
+          🏆 BATTLE COMPLETE 🏆
         </div>
-        
+
         {/* Winner Announcement */}
         <div style={{
           fontSize: '32px',
@@ -74,7 +73,7 @@ const TurnTransition = ({
         }}>
           {isTie ? "IT'S A TIE!" : `${winnerName} WINS!`}
         </div>
-        
+
         {/* Final Scores */}
         <div style={{
           display: 'flex',
@@ -103,7 +102,7 @@ const TurnTransition = ({
               <div style={{ color: '#FFD700', fontSize: '24px', marginTop: '10px' }}>👑</div>
             )}
           </div>
-          
+
           {/* VS */}
           <div style={{
             display: 'flex',
@@ -113,7 +112,7 @@ const TurnTransition = ({
           }}>
             VS
           </div>
-          
+
           {/* Player 2 Card */}
           <div style={{
             background: winner === 2 ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)',
@@ -137,7 +136,7 @@ const TurnTransition = ({
             )}
           </div>
         </div>
-        
+
         {/* Action Buttons */}
         <div style={{ display: 'flex', gap: '20px' }}>
           <button
@@ -172,10 +171,17 @@ const TurnTransition = ({
             🏠 MAIN MENU
           </button>
         </div>
+
+        <style>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.02); }
+          }
+        `}</style>
       </div>
     );
   }
-  
+
   // Turn transition - show current player's results and prepare for next player
   return (
     <div style={{
@@ -201,7 +207,7 @@ const TurnTransition = ({
       }}>
         {gameOver ? '💀 GAME OVER 💀' : victory ? '🎉 VICTORY! 🎉' : '✅ LEVEL COMPLETE!'}
       </div>
-      
+
       {/* Current Player Results */}
       <div style={{
         background: 'rgba(0, 255, 255, 0.1)',
@@ -212,19 +218,19 @@ const TurnTransition = ({
         marginBottom: '30px'
       }}>
         <div style={{ color: '#ff0', fontSize: '20px', marginBottom: '15px' }}>
-          {currentPlayerName}'s Turn Complete
+          {playerName}'s Turn Complete
         </div>
-        
+
         <div style={{ color: '#fff', fontSize: '16px', lineHeight: '2' }}>
           <div>Level: <span style={{ color: '#0ff' }}>{level}</span></div>
           <div>Score: <span style={{ color: '#0f0' }}>{score}</span></div>
           <div>Accuracy: <span style={{ color: '#f0f' }}>{accuracy}%</span></div>
           {!gameOver && !victory && (
-            <div>Lives Remaining: <span style={{ color: '#ff0' }}>{'💎'.repeat(Math.max(0, lives))}</span></div>
+            <div>Lives Remaining: <span style={{ color: '#ff0' }}>{'💎'.repeat(Math.max(0, lives || 0))}</span></div>
           )}
         </div>
       </div>
-      
+
       {/* Score Comparison */}
       <div style={{
         display: 'flex',
@@ -234,24 +240,24 @@ const TurnTransition = ({
       }}>
         <div style={{
           padding: '10px 20px',
-          background: currentPlayer === 1 ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+          background: playerNumber === 1 ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)',
           borderRadius: '8px',
-          border: currentPlayer === 1 ? '2px solid #0f0' : '1px solid #666'
+          border: playerNumber === 1 ? '2px solid #0f0' : '1px solid #666'
         }}>
           <div style={{ color: '#0ff' }}>{player1Name}</div>
-          <div style={{ color: '#fff' }}>{player1Stats.totalScore} pts</div>
+          <div style={{ color: '#fff' }}>{player1Stats.score} pts</div>
         </div>
         <div style={{
           padding: '10px 20px',
-          background: currentPlayer === 2 ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+          background: playerNumber === 2 ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)',
           borderRadius: '8px',
-          border: currentPlayer === 2 ? '2px solid #0f0' : '1px solid #666'
+          border: playerNumber === 2 ? '2px solid #0f0' : '1px solid #666'
         }}>
           <div style={{ color: '#0ff' }}>{player2Name}</div>
-          <div style={{ color: '#fff' }}>{player2Stats.totalScore} pts</div>
+          <div style={{ color: '#fff' }}>{player2Stats.score} pts</div>
         </div>
       </div>
-      
+
       {/* Next Player Prompt */}
       <div style={{
         fontSize: '24px',
@@ -262,7 +268,7 @@ const TurnTransition = ({
       }}>
         📱 Pass device to {nextPlayerName}!
       </div>
-      
+
       {/* Continue Button */}
       <button
         onClick={onContinue}
@@ -281,7 +287,7 @@ const TurnTransition = ({
       >
         ▶ {nextPlayerName}'s TURN
       </button>
-      
+
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; transform: scale(1); }
