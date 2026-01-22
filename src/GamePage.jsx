@@ -1924,6 +1924,9 @@ export default function GamePage() {
         />
       )}
 
+      {/* Remote Multiplayer Waiting Overlay */}
+      {gameMode === 'remote' && waitingForOpponent && <RemoteWaitingOverlay />}
+
       {/* Start Screen */}
       {!gameStarted && (
         <div style={{
@@ -1968,22 +1971,35 @@ export default function GamePage() {
             </p>
           )}
           
-          <button
-            onClick={startGame}
-            style={{
-              padding: '20px 50px',
-              fontSize: '24px',
-              fontFamily: "'Press Start 2P', monospace",
-              background: 'linear-gradient(to bottom, #00ffff, #0088ff)',
-              border: 'none',
-              color: '#000',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              borderRadius: '15px',
-              boxShadow: '0 0 30px #0ff',
-              animation: 'pulse 1.5s infinite'
-            }}
-          >▶ START GAME</button>
+          {/* Remote mode: Show different UI based on turn */}
+          {gameMode === 'remote' && !isMyTurn ? (
+            <div style={{
+              textAlign: 'center',
+              color: '#f0f',
+              fontFamily: "'Press Start 2P', monospace"
+            }}>
+              <p style={{ fontSize: '18px', marginBottom: '20px' }}>⏳ WAITING FOR OPPONENT</p>
+              <p style={{ fontSize: '14px', color: '#aaa' }}>Room Code: {gameCode}</p>
+              <p style={{ fontSize: '12px', color: '#888', marginTop: '10px' }}>Your opponent is playing...</p>
+            </div>
+          ) : (
+            <button
+              onClick={startGame}
+              style={{
+                padding: '20px 50px',
+                fontSize: '24px',
+                fontFamily: "'Press Start 2P', monospace",
+                background: 'linear-gradient(to bottom, #00ffff, #0088ff)',
+                border: 'none',
+                color: '#000',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                borderRadius: '15px',
+                boxShadow: '0 0 30px #0ff',
+                animation: 'pulse 1.5s infinite'
+              }}
+            >▶ START GAME</button>
+          )}
         </div>
       )}
       
