@@ -629,7 +629,7 @@ function Starfield() {
   );
 }
 
-function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd }) {
+function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd, currentPlayerTurn }) {
   const { playerX, score, lives, gameOver, gameWon, paused, highScore, gameStarted, level, showLevelUp, showMysteryIndicator, currentDiveIds, shotsFired, shotsHit } = gameState;
   const { setPlayerX, setScore, setLives, setGameOver, setGameWon, setHighScore, setLevel, setShowLevelUp, setShowMysteryIndicator, setShotsFired, setShotsHit, setDiveKillCount, setCurrentDiveIds, setShowTopGunBonus } = gameActions;
   
@@ -722,10 +722,10 @@ function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd }) {
     setBarriers(initialBarriers);
   }, []);
 
-  // Initial setup
+  // Initial setup - reinitialize when level or player turn changes
   useEffect(() => {
     initializeLevel(level);
-  }, []);
+  }, [level, currentPlayerTurn]);
 
   // Check for level complete
   useEffect(() => {
@@ -2118,7 +2118,7 @@ export default function GamePage() {
         {/* Animated starfield background */}
         <Starfield />
         <Suspense fallback={null}>
-          <Game gameState={gameState} gameActions={gameActions} gameMode={gameMode} handleMultiplayerTurnEnd={handleMultiplayerTurnEnd} />
+          <Game gameState={gameState} gameActions={gameActions} gameMode={gameMode} handleMultiplayerTurnEnd={handleMultiplayerTurnEnd} currentPlayerTurn={currentPlayerTurn} />
         </Suspense>
       </Canvas>
       
