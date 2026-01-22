@@ -835,3 +835,24 @@
     opacity: 0;
   }
 }
+
+/* Button text styling */
+.play-button .button-text {
+  display: block;
+}
+
+.play-button .button-subtext {
+  display: block;
+  font-size: 0.5em;
+  margin-top: 10px;
+  opacity: 0.8;
+}
+
+/* Spacing between button and controls hint */
+.cta-section .play-button {
+  margin-bottom: 40px;
+}
+
+.controls-hint {
+  margin-top: 20px;
+}
