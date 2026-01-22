@@ -1,7 +1,4 @@
 import React, { Suspense, useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import TurnTransition from './components/TurnTransition';
-import { useGame } from './context/GameContext';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import { Stars } from '@react-three/drei';
 import * as THREE from 'three';
@@ -1105,21 +1102,6 @@ function Game({ gameState, gameActions }) {
           if (newEnemies.some(e => e.y <= BARRIER_Y && !e.isDiving)) {
             setGameOver(true);
             playSound('gameOver');
-            // Multiplayer: trigger turn end on game over
-            if (gameMode === 'local') {
-              setTimeout(() => {
-                handleMultiplayerTurnEnd({
-                  levelCompleted: false,
-                  score: score,
-                  level: level,
-                  lives: 0,
-                  gameOver: true,
-                  victory: false,
-                  shotsFired: shotsFired,
-                  shotsHit: shotsHit
-                });
-              }, 1500);
-            }
           }
           
           return newEnemies;
@@ -1346,21 +1328,6 @@ function Game({ gameState, gameActions }) {
             if (newLives <= 0) {
               setGameOver(true);
               playSound('gameOver');
-              // Multiplayer: trigger turn end on game over
-              if (gameMode === 'local') {
-                setTimeout(() => {
-                  handleMultiplayerTurnEnd({
-                    levelCompleted: false,
-                    score: score,
-                    level: level,
-                    lives: 0,
-                    gameOver: true,
-                    victory: false,
-                    shotsFired: shotsFired,
-                    shotsHit: shotsHit
-                  });
-                }, 1500);
-              }
             } else {
               playSound('playerHit');
             }
@@ -1440,36 +1407,6 @@ function Game({ gameState, gameActions }) {
 // Main App
 export default function GamePage() {
   console.log('App component loaded!');
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-
-  // Get game mode and player names from URL
-  const gameMode = searchParams.get('mode') || 'solo';
-  const player1Name = decodeURIComponent(searchParams.get('p1') || 'Player 1');
-  const player2Name = decodeURIComponent(searchParams.get('p2') || 'Player 2');
-
-  // Multiplayer state
-  const [currentPlayerTurn, setCurrentPlayerTurn] = useState(1);
-  const [player1Stats, setPlayer1Stats] = useState({
-    score: 0,
-    currentLevel: 1,
-    isFinished: false,
-    accuracy: 0,
-    shotsFired: 0,
-    shotsHit: 0
-  });
-  const [player2Stats, setPlayer2Stats] = useState({
-    score: 0,
-    currentLevel: 1,
-    isFinished: false,
-    accuracy: 0,
-    shotsFired: 0,
-    shotsHit: 0
-  });
-  const [showTurnTransition, setShowTurnTransition] = useState(false);
-  const [transitionData, setTransitionData] = useState(null);
-  const [multiplayerGameFinished, setMultiplayerGameFinished] = useState(false);
-
   const [playerX, setPlayerX] = useState(0);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
@@ -1496,90 +1433,7 @@ export default function GamePage() {
   const [diveKillCount, setDiveKillCount] = useState(0);
   const [currentDiveIds, setCurrentDiveIds] = useState([]);
 
-  const restart = () => {
-    if (gameMode === 'local') {
-      navigate('/');
-    } else {
-      window.location.reload();
-    }
-  };
-
-  // Multiplayer: Handle turn end (level complete or game over)
-  const handleMultiplayerTurnEnd = useCallback((result) => {
-    if (gameMode !== 'local') return;
-
-    const setCurrentStats = currentPlayerTurn === 1 ? setPlayer1Stats : setPlayer2Stats;
-    const otherPlayerStats = currentPlayerTurn === 1 ? player2Stats : player1Stats;
-
-    const accuracy = result.shotsFired > 0 ? Math.round((result.shotsHit / result.shotsFired) * 100) : 0;
-
-    const newStats = {
-      score: result.score,
-      currentLevel: result.level,
-      isFinished: result.gameOver || result.victory,
-      accuracy: accuracy,
-      shotsFired: result.shotsFired,
-      shotsHit: result.shotsHit
-    };
-    setCurrentStats(newStats);
-
-    const transData = {
-      playerName: currentPlayerTurn === 1 ? player1Name : player2Name,
-      playerNumber: currentPlayerTurn,
-      result: { ...result, accuracy },
-      nextPlayerName: currentPlayerTurn === 1 ? player2Name : player1Name,
-      nextPlayerNumber: currentPlayerTurn === 1 ? 2 : 1,
-      isFinalResult: false,
-      switchingPlayer: true
-    };
-
-    if ((result.gameOver || result.victory) && otherPlayerStats.isFinished) {
-      transData.isFinalResult = true;
-      setMultiplayerGameFinished(true);
-    }
-
-    setTransitionData(transData);
-    setShowTurnTransition(true);
-  }, [gameMode, currentPlayerTurn, player1Stats, player2Stats, player1Name, player2Name]);
-
-  const confirmTurnTransition = useCallback(() => {
-    if (transitionData?.isFinalResult) {
-      setShowTurnTransition(false);
-      return;
-    }
-
-    const nextPlayer = currentPlayerTurn === 1 ? 2 : 1;
-    const nextPlayerStats = nextPlayer === 1 ? player1Stats : player2Stats;
-    setCurrentPlayerTurn(nextPlayer);
-
-    setScore(0);
-    setLives(3);
-    setLevel(nextPlayerStats.currentLevel || 1);
-    setGameOver(false);
-    setGameWon(false);
-    setGameStarted(true);
-    setShotsFired(0);
-    setShotsHit(0);
-    setShowTurnTransition(false);
-    setTransitionData(null);
-  }, [transitionData, currentPlayerTurn, player1Stats, player2Stats]);
-
-  const handleRematch = useCallback(() => {
-    setCurrentPlayerTurn(1);
-    setPlayer1Stats({ score: 0, currentLevel: 1, isFinished: false, accuracy: 0, shotsFired: 0, shotsHit: 0 });
-    setPlayer2Stats({ score: 0, currentLevel: 1, isFinished: false, accuracy: 0, shotsFired: 0, shotsHit: 0 });
-    setMultiplayerGameFinished(false);
-    setShowTurnTransition(false);
-    setTransitionData(null);
-    setScore(0);
-    setLives(3);
-    setLevel(1);
-    setGameOver(false);
-    setGameWon(false);
-    setGameStarted(false);
-    setShotsFired(0);
-    setShotsHit(0);
-  }, []);
+  const restart = () => window.location.reload();
   
   const startGame = () => {
     console.log('START GAME CLICKED!');
@@ -1592,20 +1446,6 @@ export default function GamePage() {
   return (
     <div style={{ width: '100vw', height: '100vh', background: 'linear-gradient(to bottom, #000011, #000033)', touchAction: 'none' }}>
       
-            {/* Multiplayer Turn Transition */}
-      {gameMode === 'local' && showTurnTransition && (
-        <TurnTransition
-          transitionData={transitionData}
-          player1Stats={player1Stats}
-          player2Stats={player2Stats}
-          player1Name={player1Name}
-          player2Name={player2Name}
-          onContinue={confirmTurnTransition}
-          onPlayAgain={handleRematch}
-          onMainMenu={() => navigate('/')}
-        />
-      )}
-
       {/* Start Screen */}
       {!gameStarted && (
         <div style={{
@@ -1681,45 +1521,11 @@ export default function GamePage() {
           zIndex: 100,
           textShadow: '0 0 10px #0ff, 0 0 20px #0ff'
         }}>
-          {/* Multiplayer Mode Header */}
-          {gameMode === 'local' && (
-            <div style={{ 
-              marginBottom: '10px', 
-              padding: '5px 10px', 
-              background: 'rgba(255,255,0,0.2)', 
-              borderRadius: '5px',
-              border: '1px solid #ff0'
-            }}>
-              <div style={{ color: '#ff0', fontSize: '14px' }}>🎮 LOCAL BATTLE</div>
-              <div style={{ color: '#0f0', fontSize: '12px' }}>
-                {currentPlayerTurn === 1 ? player1Name : player2Name}'s Turn
-              </div>
-            </div>
-          )}
-
           <div>LEVEL: {level}</div>
           <div>SCORE: {score}</div>
-          {gameMode !== 'local' && <div>HIGH: {highScore}</div>}
-          <div>LIVES: {'💎'.repeat(Math.max(0, lives))}</div>
+          <div>HIGH: {highScore}</div>
+          <div>LIVES: {'💎'.repeat(lives)}</div>
           <div>ACCURACY: {shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0}%</div>
-
-          {/* Multiplayer Score Comparison */}
-          {gameMode === 'local' && (
-            <div style={{ 
-              marginTop: '15px', 
-              padding: '8px', 
-              background: 'rgba(0,0,0,0.5)', 
-              borderRadius: '5px',
-              fontSize: '12px'
-            }}>
-              <div style={{ color: currentPlayerTurn === 1 ? '#0f0' : '#888' }}>
-                {player1Name}: {player1Stats.totalScore} pts (L{player1Stats.currentLevel})
-              </div>
-              <div style={{ color: currentPlayerTurn === 2 ? '#0f0' : '#888' }}>
-                {player2Name}: {player2Stats.totalScore} pts (L{player2Stats.currentLevel})
-              </div>
-            </div>
-          )}
         </div>
       )}
 
