@@ -78,12 +78,13 @@ const ModeSelectionModal = ({ onSelectMode, onClose, highScore }) => {
   const [selectedMode, setSelectedMode] = useState(null);
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
+  const [totalRounds, setTotalRounds] = useState(3);
   
   const handleStartGame = () => {
     if (selectedMode === 'solo') {
       onSelectMode('solo', null, null);
     } else if (selectedMode === 'local') {
-      onSelectMode('local', player1Name || 'Player 1', player2Name || 'Player 2');
+      onSelectMode('local', player1Name || 'Player 1', player2Name || 'Player 2', totalRounds);
     }
   };
   
@@ -387,6 +388,49 @@ const ModeSelectionModal = ({ onSelectMode, onClose, highScore }) => {
             </div>
           </div>
           
+          {/* Rounds Selector */}
+          <div style={{
+            marginBottom: '20px',
+            textAlign: 'center'
+          }}>
+            <label style={{
+              display: 'block',
+              color: '#f0f',
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: '14px',
+              marginBottom: '15px'
+            }}>
+              🎯 NUMBER OF ROUNDS
+            </label>
+            <div style={{
+              display: 'flex',
+              gap: '10px',
+              justifyContent: 'center',
+              flexWrap: 'wrap'
+            }}>
+              {[1, 3, 5, 10].map(num => (
+                <button
+                  key={num}
+                  onClick={() => setTotalRounds(num)}
+                  style={{
+                    padding: '12px 20px',
+                    fontSize: '16px',
+                    fontFamily: "'Press Start 2P', monospace",
+                    background: totalRounds === num ? 'linear-gradient(to bottom, #f0f, #808)' : 'transparent',
+                    border: totalRounds === num ? '3px solid #f0f' : '2px solid #666',
+                    color: totalRounds === num ? '#fff' : '#888',
+                    cursor: 'pointer',
+                    borderRadius: '8px',
+                    boxShadow: totalRounds === num ? '0 0 15px #f0f' : 'none',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div style={{
             color: '#ff0',
             fontFamily: "'Press Start 2P', monospace",
@@ -395,10 +439,10 @@ const ModeSelectionModal = ({ onSelectMode, onClose, highScore }) => {
             lineHeight: '1.8'
           }}>
             📋 RULES:<br/>
-            • Players take turns after each level<br/>
-            • Each player has 3 lives per level<br/>
-            • Play through all 10 levels<br/>
-            • Highest total score wins!
+            • Each round = 1 level (Round 1 = Level 1, etc.)<br/>
+            • Player 1 plays until game over, then Player 2<br/>
+            • After both finish, advance to next round<br/>
+            • Highest TOTAL score wins!
           </div>
           
           <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
@@ -458,12 +502,12 @@ const LandingPage = () => {
     setTimeout(() => setShowContent(true), 500);
   }, []);
   
-  const handleSelectMode = (mode, p1Name, p2Name) => {
+  const handleSelectMode = (mode, p1Name, p2Name, rounds = 3) => {
     // Navigate to game with mode parameters
     if (mode === 'solo') {
       navigate('/game?mode=solo');
     } else if (mode === 'local') {
-      navigate(`/game?mode=local&p1=${encodeURIComponent(p1Name)}&p2=${encodeURIComponent(p2Name)}`);
+      navigate(`/game?mode=local&p1=${encodeURIComponent(p1Name)}&p2=${encodeURIComponent(p2Name)}&rounds=${rounds}`);
     }
   };
 

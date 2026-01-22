@@ -12,28 +12,32 @@ const TurnTransition = ({
 }) => {
   if (!transitionData) return null;
 
-  // Extract data from transitionData - matching the structure from GamePage
   const {
-    playerNumber,      // Current player (1 or 2)
-    nextPlayerNumber,  // Next player (1 or 2)
-    playerName,        // Current player's name
-    nextPlayerName,    // Next player's name
-    result,            // Contains score, level, lives, gameOver, victory, shotsFired, shotsHit, accuracy
-    isFinalResult,     // True if both players have finished
-    switchingPlayer    // True if switching to next player
+    currentPlayer,
+    currentPlayerName,
+    nextPlayer,
+    nextPlayerName,
+    roundScore,
+    currentRound,
+    totalRounds,
+    player1TotalScore,
+    player2TotalScore,
+    player1RoundScores,
+    player2RoundScores,
+    nextRound,
+    isFinalResult
   } = transitionData;
-
-  // Extract result data
-  const { score, level, lives, gameOver, victory, shotsFired, shotsHit, accuracy } = result || {};
 
   // Game finished - show final results
   if (isFinalResult) {
-    const p1Score = player1Stats.score;
-    const p2Score = player2Stats.score;
+    const p1Total = player1TotalScore || 0;
+    const p2Total = player2TotalScore || 0;
+    const p1Rounds = player1RoundScores || [];
+    const p2Rounds = player2RoundScores || [];
 
     let winner = 0; // 0 = tie
-    if (p1Score > p2Score) winner = 1;
-    else if (p2Score > p1Score) winner = 2;
+    if (p1Total > p2Total) winner = 1;
+    else if (p2Total > p1Total) winner = 2;
 
     const winnerName = winner === 1 ? player1Name : winner === 2 ? player2Name : null;
     const isTie = winner === 0;
@@ -55,7 +59,7 @@ const TurnTransition = ({
       }}>
         {/* Victory Banner */}
         <div style={{
-          fontSize: '48px',
+          fontSize: '36px',
           color: '#FFD700',
           textShadow: '0 0 20px #FFD700, 0 0 40px #FFA500',
           marginBottom: '20px',
@@ -66,19 +70,23 @@ const TurnTransition = ({
 
         {/* Winner Announcement */}
         <div style={{
-          fontSize: '32px',
+          fontSize: '28px',
           color: isTie ? '#0ff' : '#0f0',
           textShadow: '0 0 15px currentColor',
-          marginBottom: '30px'
+          marginBottom: '10px'
         }}>
           {isTie ? "IT'S A TIE!" : `${winnerName} WINS!`}
+        </div>
+
+        <div style={{ color: '#888', fontSize: '12px', marginBottom: '20px' }}>
+          After {totalRounds} rounds
         </div>
 
         {/* Final Scores */}
         <div style={{
           display: 'flex',
           gap: '40px',
-          marginBottom: '40px'
+          marginBottom: '20px'
         }}>
           {/* Player 1 Card */}
           <div style={{
@@ -87,16 +95,16 @@ const TurnTransition = ({
             borderRadius: '15px',
             padding: '20px 30px',
             textAlign: 'center',
-            minWidth: '200px'
+            minWidth: '180px'
           }}>
-            <div style={{ color: '#0ff', fontSize: '18px', marginBottom: '10px' }}>
+            <div style={{ color: '#0ff', fontSize: '16px', marginBottom: '10px' }}>
               {player1Name}
             </div>
-            <div style={{ color: '#fff', fontSize: '28px', marginBottom: '10px' }}>
-              {p1Score} pts
+            <div style={{ color: '#fff', fontSize: '24px', marginBottom: '10px' }}>
+              {p1Total} pts
             </div>
-            <div style={{ color: '#888', fontSize: '12px' }}>
-              Level {player1Stats.currentLevel} | {player1Stats.accuracy}% acc
+            <div style={{ color: '#888', fontSize: '10px' }}>
+              {p1Rounds.map((s, i) => `R${i+1}: ${s}`).join(' | ')}
             </div>
             {winner === 1 && (
               <div style={{ color: '#FFD700', fontSize: '24px', marginTop: '10px' }}>👑</div>
@@ -120,16 +128,16 @@ const TurnTransition = ({
             borderRadius: '15px',
             padding: '20px 30px',
             textAlign: 'center',
-            minWidth: '200px'
+            minWidth: '180px'
           }}>
-            <div style={{ color: '#0ff', fontSize: '18px', marginBottom: '10px' }}>
+            <div style={{ color: '#0ff', fontSize: '16px', marginBottom: '10px' }}>
               {player2Name}
             </div>
-            <div style={{ color: '#fff', fontSize: '28px', marginBottom: '10px' }}>
-              {p2Score} pts
+            <div style={{ color: '#fff', fontSize: '24px', marginBottom: '10px' }}>
+              {p2Total} pts
             </div>
-            <div style={{ color: '#888', fontSize: '12px' }}>
-              Level {player2Stats.currentLevel} | {player2Stats.accuracy}% acc
+            <div style={{ color: '#888', fontSize: '10px' }}>
+              {p2Rounds.map((s, i) => `R${i+1}: ${s}`).join(' | ')}
             </div>
             {winner === 2 && (
               <div style={{ color: '#FFD700', fontSize: '24px', marginTop: '10px' }}>👑</div>
@@ -138,12 +146,12 @@ const TurnTransition = ({
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '20px' }}>
+        <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
           <button
             onClick={onPlayAgain}
             style={{
               padding: '15px 30px',
-              fontSize: '16px',
+              fontSize: '14px',
               fontFamily: "'Press Start 2P', monospace",
               background: 'linear-gradient(to bottom, #00ff00, #00aa00)',
               border: 'none',
@@ -159,7 +167,7 @@ const TurnTransition = ({
             onClick={onMainMenu}
             style={{
               padding: '15px 30px',
-              fontSize: '16px',
+              fontSize: '14px',
               fontFamily: "'Press Start 2P', monospace",
               background: 'linear-gradient(to bottom, #666, #444)',
               border: 'none',
@@ -182,7 +190,9 @@ const TurnTransition = ({
     );
   }
 
-  // Turn transition - show current player's results and prepare for next player
+  // Turn transition - show current player's round results and prepare for next
+  const isAdvancingRound = nextRound && nextRound > currentRound;
+
   return (
     <div style={{
       position: 'fixed',
@@ -198,14 +208,23 @@ const TurnTransition = ({
       zIndex: 1000,
       fontFamily: "'Press Start 2P', monospace"
     }}>
+      {/* Round Info */}
+      <div style={{
+        fontSize: '18px',
+        color: '#888',
+        marginBottom: '10px'
+      }}>
+        Round {currentRound} of {totalRounds}
+      </div>
+
       {/* Turn Complete Header */}
       <div style={{
         fontSize: '28px',
-        color: gameOver ? '#f00' : victory ? '#FFD700' : '#0ff',
+        color: '#0ff',
         textShadow: '0 0 15px currentColor',
         marginBottom: '20px'
       }}>
-        {gameOver ? '💀 GAME OVER 💀' : victory ? '🎉 VICTORY! 🎉' : '✅ LEVEL COMPLETE!'}
+        💀 {currentPlayerName}'s Turn Over!
       </div>
 
       {/* Current Player Results */}
@@ -213,25 +232,19 @@ const TurnTransition = ({
         background: 'rgba(0, 255, 255, 0.1)',
         border: '2px solid #0ff',
         borderRadius: '15px',
-        padding: '25px 40px',
+        padding: '20px 40px',
         textAlign: 'center',
-        marginBottom: '30px'
+        marginBottom: '20px'
       }}>
-        <div style={{ color: '#ff0', fontSize: '20px', marginBottom: '15px' }}>
-          {playerName}'s Turn Complete
+        <div style={{ color: '#ff0', fontSize: '18px', marginBottom: '10px' }}>
+          Round {currentRound} Score
         </div>
-
-        <div style={{ color: '#fff', fontSize: '16px', lineHeight: '2' }}>
-          <div>Level: <span style={{ color: '#0ff' }}>{level}</span></div>
-          <div>Score: <span style={{ color: '#0f0' }}>{score}</span></div>
-          <div>Accuracy: <span style={{ color: '#f0f' }}>{accuracy}%</span></div>
-          {!gameOver && !victory && (
-            <div>Lives Remaining: <span style={{ color: '#ff0' }}>{'💎'.repeat(Math.max(0, lives || 0))}</span></div>
-          )}
+        <div style={{ color: '#0f0', fontSize: '32px' }}>
+          +{roundScore} pts
         </div>
       </div>
 
-      {/* Score Comparison */}
+      {/* Running Totals */}
       <div style={{
         display: 'flex',
         gap: '30px',
@@ -239,28 +252,43 @@ const TurnTransition = ({
         fontSize: '14px'
       }}>
         <div style={{
-          padding: '10px 20px',
-          background: playerNumber === 1 ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '8px',
-          border: playerNumber === 1 ? '2px solid #0f0' : '1px solid #666'
+          padding: '15px 25px',
+          background: currentPlayer === 1 ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+          borderRadius: '10px',
+          border: currentPlayer === 1 ? '2px solid #0f0' : '1px solid #666',
+          textAlign: 'center'
         }}>
-          <div style={{ color: '#0ff' }}>{player1Name}</div>
-          <div style={{ color: '#fff' }}>{player1Stats.score} pts</div>
+          <div style={{ color: '#0ff', marginBottom: '5px' }}>{player1Name}</div>
+          <div style={{ color: '#fff', fontSize: '20px' }}>{player1TotalScore} pts</div>
+          <div style={{ color: '#888', fontSize: '10px' }}>Total</div>
         </div>
         <div style={{
-          padding: '10px 20px',
-          background: playerNumber === 2 ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '8px',
-          border: playerNumber === 2 ? '2px solid #0f0' : '1px solid #666'
+          padding: '15px 25px',
+          background: currentPlayer === 2 ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+          borderRadius: '10px',
+          border: currentPlayer === 2 ? '2px solid #0f0' : '1px solid #666',
+          textAlign: 'center'
         }}>
-          <div style={{ color: '#0ff' }}>{player2Name}</div>
-          <div style={{ color: '#fff' }}>{player2Stats.score} pts</div>
+          <div style={{ color: '#0ff', marginBottom: '5px' }}>{player2Name}</div>
+          <div style={{ color: '#fff', fontSize: '20px' }}>{player2TotalScore} pts</div>
+          <div style={{ color: '#888', fontSize: '10px' }}>Total</div>
         </div>
       </div>
 
-      {/* Next Player Prompt */}
+      {/* Next Action */}
+      {isAdvancingRound ? (
+        <div style={{
+          fontSize: '20px',
+          color: '#f0f',
+          textShadow: '0 0 10px #f0f',
+          marginBottom: '15px'
+        }}>
+          ⬆️ Advancing to Round {nextRound}!
+        </div>
+      ) : null}
+
       <div style={{
-        fontSize: '24px',
+        fontSize: '20px',
         color: '#ff0',
         textShadow: '0 0 10px #ff0',
         marginBottom: '20px',
@@ -274,7 +302,7 @@ const TurnTransition = ({
         onClick={onContinue}
         style={{
           padding: '20px 50px',
-          fontSize: '20px',
+          fontSize: '18px',
           fontFamily: "'Press Start 2P', monospace",
           background: 'linear-gradient(to bottom, #00ffff, #0088ff)',
           border: 'none',
@@ -285,7 +313,7 @@ const TurnTransition = ({
           animation: 'pulse 1.5s infinite'
         }}
       >
-        ▶ {nextPlayerName}'s TURN
+        ▶ {nextPlayerName} - Round {nextRound || currentRound}
       </button>
 
       <style>{`

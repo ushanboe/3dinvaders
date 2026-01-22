@@ -739,6 +739,21 @@ function Game({ gameState, gameActions, gameMode, handleMultiplayerTurnEnd, curr
         // Game complete!
         setGameWon(true);
         playSound('victory');
+        // Multiplayer: trigger turn end on victory
+        if (gameMode === 'local') {
+          setTimeout(() => {
+            handleMultiplayerTurnEnd({
+              levelCompleted: true,
+              score: score,
+              level: level,
+              lives: lives,
+              gameOver: false,
+              victory: true,
+              shotsFired: shotsFired,
+              shotsHit: shotsHit
+            });
+          }, 1500);
+        }
       } else {
         // Next level
         setShowLevelUp(true);
@@ -1447,21 +1462,24 @@ export default function GamePage() {
   const gameMode = searchParams.get('mode') || 'solo';
   const player1Name = decodeURIComponent(searchParams.get('p1') || 'Player 1');
   const player2Name = decodeURIComponent(searchParams.get('p2') || 'Player 2');
+  const urlRounds = parseInt(searchParams.get('rounds')) || 3;
 
   // Multiplayer state
   const [currentPlayerTurn, setCurrentPlayerTurn] = useState(1);
+  const [currentRound, setCurrentRound] = useState(1);
+  const [totalRounds, setTotalRounds] = useState(urlRounds);  // Configurable number of rounds from URL
   const [player1Stats, setPlayer1Stats] = useState({
-    score: 0,
-    currentLevel: 1,
-    isFinished: false,
+    totalScore: 0,
+    roundScores: [],  // Array of scores for each round
+    currentRoundFinished: false,
     accuracy: 0,
     shotsFired: 0,
     shotsHit: 0
   });
   const [player2Stats, setPlayer2Stats] = useState({
-    score: 0,
-    currentLevel: 1,
-    isFinished: false,
+    totalScore: 0,
+    roundScores: [],  // Array of scores for each round
+    currentRoundFinished: false,
     accuracy: 0,
     shotsFired: 0,
     shotsHit: 0
@@ -1508,53 +1526,121 @@ export default function GamePage() {
   const handleMultiplayerTurnEnd = useCallback((result) => {
     if (gameMode !== 'local') return;
 
-    const setCurrentStats = currentPlayerTurn === 1 ? setPlayer1Stats : setPlayer2Stats;
-    const otherPlayerStats = currentPlayerTurn === 1 ? player2Stats : player1Stats;
-
     const accuracy = result.shotsFired > 0 ? Math.round((result.shotsHit / result.shotsFired) * 100) : 0;
+    const roundScore = result.score;
 
-    const newStats = {
-      score: result.score,
-      currentLevel: result.level,
-      isFinished: result.gameOver || result.victory,
-      accuracy: accuracy,
-      shotsFired: result.shotsFired,
-      shotsHit: result.shotsHit
-    };
-    setCurrentStats(newStats);
+    // Update current player's stats
+    if (currentPlayerTurn === 1) {
+      setPlayer1Stats(prev => ({
+        ...prev,
+        totalScore: prev.totalScore + roundScore,
+        roundScores: [...prev.roundScores, roundScore],
+        currentRoundFinished: true,
+        accuracy: accuracy,
+        shotsFired: prev.shotsFired + result.shotsFired,
+        shotsHit: prev.shotsHit + result.shotsHit
+      }));
+    } else {
+      setPlayer2Stats(prev => ({
+        ...prev,
+        totalScore: prev.totalScore + roundScore,
+        roundScores: [...prev.roundScores, roundScore],
+        currentRoundFinished: true,
+        accuracy: accuracy,
+        shotsFired: prev.shotsFired + result.shotsFired,
+        shotsHit: prev.shotsHit + result.shotsHit
+      }));
+    }
 
-    const transData = {
-      playerName: currentPlayerTurn === 1 ? player1Name : player2Name,
-      playerNumber: currentPlayerTurn,
-      result: { ...result, accuracy },
-      nextPlayerName: currentPlayerTurn === 1 ? player2Name : player1Name,
-      nextPlayerNumber: currentPlayerTurn === 1 ? 2 : 1,
-      isFinalResult: false,
-      switchingPlayer: true
-    };
+    // Determine next action
+    const otherPlayerFinishedThisRound = currentPlayerTurn === 1 
+      ? player2Stats.roundScores.length >= currentRound 
+      : player1Stats.roundScores.length >= currentRound;
 
-    if ((result.gameOver || result.victory) && otherPlayerStats.isFinished) {
-      transData.isFinalResult = true;
-      setMultiplayerGameFinished(true);
+    let transData;
+
+    if (currentPlayerTurn === 1) {
+      // Player 1 just finished, switch to Player 2 for same round
+      transData = {
+        currentPlayer: 1,
+        currentPlayerName: player1Name,
+        nextPlayer: 2,
+        nextPlayerName: player2Name,
+        roundScore: roundScore,
+        currentRound: currentRound,
+        totalRounds: totalRounds,
+        player1TotalScore: (player1Stats.totalScore || 0) + roundScore,
+        player2TotalScore: player2Stats.totalScore || 0,
+        isFinalResult: false
+      };
+    } else {
+      // Player 2 just finished this round
+      const p1Total = player1Stats.totalScore || 0;
+      const p2Total = (player2Stats.totalScore || 0) + roundScore;
+
+      if (currentRound >= totalRounds) {
+        // All rounds complete - show final results
+        transData = {
+          currentPlayer: 2,
+          currentPlayerName: player2Name,
+          nextPlayer: null,
+          nextPlayerName: null,
+          roundScore: roundScore,
+          currentRound: currentRound,
+          totalRounds: totalRounds,
+          player1TotalScore: p1Total,
+          player2TotalScore: p2Total,
+          player1RoundScores: player1Stats.roundScores,
+          player2RoundScores: [...player2Stats.roundScores, roundScore],
+          player1Name: player1Name,
+          player2Name: player2Name,
+          isFinalResult: true
+        };
+      } else {
+        // Move to next round, Player 1 starts
+        transData = {
+          currentPlayer: 2,
+          currentPlayerName: player2Name,
+          nextPlayer: 1,
+          nextPlayerName: player1Name,
+          roundScore: roundScore,
+          currentRound: currentRound,
+          totalRounds: totalRounds,
+          player1TotalScore: p1Total,
+          player2TotalScore: p2Total,
+          nextRound: currentRound + 1,
+          isFinalResult: false
+        };
+      }
     }
 
     setTransitionData(transData);
     setShowTurnTransition(true);
-  }, [gameMode, currentPlayerTurn, player1Stats, player2Stats, player1Name, player2Name]);
+  }, [gameMode, currentPlayerTurn, currentRound, totalRounds, player1Stats, player2Stats, player1Name, player2Name]);
 
   const confirmTurnTransition = useCallback(() => {
     if (transitionData?.isFinalResult) {
       setShowTurnTransition(false);
+      setMultiplayerGameFinished(true);
       return;
     }
 
-    const nextPlayer = currentPlayerTurn === 1 ? 2 : 1;
+    const nextPlayer = transitionData?.nextPlayer || (currentPlayerTurn === 1 ? 2 : 1);
+    const nextRound = transitionData?.nextRound || currentRound;
+
     setCurrentPlayerTurn(nextPlayer);
 
-    // Always start fresh at Level 1 for the next player
+    // If advancing to next round, update round counter and reset both players' round status
+    if (nextRound > currentRound) {
+      setCurrentRound(nextRound);
+      setPlayer1Stats(prev => ({ ...prev, currentRoundFinished: false }));
+      setPlayer2Stats(prev => ({ ...prev, currentRoundFinished: false }));
+    }
+
+    // Start fresh for the next player's turn at the current round's level
     setScore(0);
     setLives(3);
-    setLevel(1);
+    setLevel(nextRound);  // Level matches the round number
     setGameOver(false);
     setGameWon(false);
     setGameStarted(true);
@@ -1562,12 +1648,13 @@ export default function GamePage() {
     setShotsHit(0);
     setShowTurnTransition(false);
     setTransitionData(null);
-  }, [transitionData, currentPlayerTurn]);
+  }, [transitionData, currentPlayerTurn, currentRound]);
 
   const handleRematch = useCallback(() => {
     setCurrentPlayerTurn(1);
-    setPlayer1Stats({ score: 0, currentLevel: 1, isFinished: false, accuracy: 0, shotsFired: 0, shotsHit: 0 });
-    setPlayer2Stats({ score: 0, currentLevel: 1, isFinished: false, accuracy: 0, shotsFired: 0, shotsHit: 0 });
+    setCurrentRound(1);
+    setPlayer1Stats({ totalScore: 0, roundScores: [], currentRoundFinished: false, accuracy: 0, shotsFired: 0, shotsHit: 0 });
+    setPlayer2Stats({ totalScore: 0, roundScores: [], currentRoundFinished: false, accuracy: 0, shotsFired: 0, shotsHit: 0 });
     setMultiplayerGameFinished(false);
     setShowTurnTransition(false);
     setTransitionData(null);
