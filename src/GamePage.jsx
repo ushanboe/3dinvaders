@@ -1487,6 +1487,20 @@ export default function GamePage() {
   const gameCode = searchParams.get('code') || '';
   const playerNum = parseInt(searchParams.get('pnum')) || 1;
 
+  // Debug: Log all URL parameters on mount
+  useEffect(() => {
+    console.log("[DEBUG] GamePage URL params:", {
+      fullURL: window.location.href,
+      mode: gameMode,
+      code: gameCode,
+      pnum: searchParams.get('pnum'),
+      playerNum: playerNum,
+      p1: searchParams.get('p1'),
+      p2: searchParams.get('p2'),
+      rounds: searchParams.get('rounds')
+    });
+  }, []);
+
   // Multiplayer state
   const [currentPlayerTurn, setCurrentPlayerTurn] = useState(1);
   const [currentRound, setCurrentRound] = useState(1);
@@ -1546,10 +1560,14 @@ export default function GamePage() {
 
   // Remote multiplayer waiting overlay component
   const RemoteWaitingOverlay = () => {
-    console.log("[DEBUG] RemoteWaitingOverlay check:", { gameMode, waitingForOpponent, isMyTurn, opponentStatus, playerNum });
-    if (gameMode !== 'remote' || !waitingForOpponent) return null;
-
     const opponent = playerNum === 1 ? effectivePlayer2Name : effectivePlayer1Name;
+    console.log("[DEBUG] RemoteWaitingOverlay check:", { 
+      gameMode, waitingForOpponent, isMyTurn, opponentStatus, playerNum,
+      effectivePlayer1Name, effectivePlayer2Name, opponent,
+      remotePlayer1Name, remotePlayer2Name,
+      urlP1: player1Name, urlP2: player2Name
+    });
+    if (gameMode !== 'remote' || !waitingForOpponent) return null;
     const opponentData = remoteGameData ?
       (playerNum === 1 ? remoteGameData.player2 : remoteGameData.player1) : null;
 
