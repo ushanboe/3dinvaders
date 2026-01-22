@@ -1473,6 +1473,14 @@ export default function GamePage() {
   const gameMode = searchParams.get('mode') || 'solo';
   const player1Name = decodeURIComponent(searchParams.get('p1') || 'Player 1');
   const player2Name = decodeURIComponent(searchParams.get('p2') || 'Player 2');
+
+  // Dynamic player names from Firebase (for remote mode)
+  const [remotePlayer1Name, setRemotePlayer1Name] = useState(player1Name);
+  const [remotePlayer2Name, setRemotePlayer2Name] = useState(player2Name);
+
+  // Use remote names if in remote mode, otherwise use URL params
+  const effectivePlayer1Name = gameMode === 'remote' ? remotePlayer1Name : player1Name;
+  const effectivePlayer2Name = gameMode === 'remote' ? remotePlayer2Name : player2Name;
   const urlRounds = parseInt(searchParams.get('rounds')) || 3;
   
   // Remote multiplayer params
@@ -1540,7 +1548,7 @@ export default function GamePage() {
     console.log("[DEBUG] RemoteWaitingOverlay check:", { gameMode, waitingForOpponent, isMyTurn, opponentStatus, playerNum });
     if (gameMode !== 'remote' || !waitingForOpponent) return null;
 
-    const opponent = playerNum === 1 ? player2Name : player1Name;
+    const opponent = playerNum === 1 ? effectivePlayer2Name : effectivePlayer1Name;
     const opponentData = remoteGameData ?
       (playerNum === 1 ? remoteGameData.player2 : remoteGameData.player1) : null;
 
@@ -1606,24 +1614,68 @@ export default function GamePage() {
 
       if (!gameData) return;
 
+      // Sync player names from Firebase
+      if (gameData.player1?.name) {
+        setRemotePlayer1Name(gameData.player1.name);
+      }
+      if (gameData.player2?.name && gameData.player2.name !== '') {
+        setRemotePlayer2Name(gameData.player2.name);
+      }
+
       // Check if opponent has joined
       const opponent = playerNum === 1 ? gameData.player2 : gameData.player1;
-      if (opponent && opponent.name) {
+      if (opponent && opponent.joined) {
         setOpponentStatus('joined');
+      }
+
+      // Check if game is finished (all rounds complete)
+      if (gameData.status === 'finished') {
+        // Update final stats from Firebase
+        setPlayer1Stats(prev => ({
+          ...prev,
+          totalScore: gameData.player1?.totalScore || 0,
+          roundScores: gameData.player1?.roundScores || []
+        }));
+        setPlayer2Stats(prev => ({
+          ...prev,
+          totalScore: gameData.player2?.totalScore || 0,
+          roundScores: gameData.player2?.roundScores || []
+        }));
+        setMultiplayerGameFinished(true);
+        return;
+      }
+
+      // Check if all rounds are complete
+      const p1Rounds = gameData.player1?.roundScores?.length || 0;
+      const p2Rounds = gameData.player2?.roundScores?.length || 0;
+      const totalRoundsNeeded = gameData.totalRounds || 3;
+
+      if (p1Rounds >= totalRoundsNeeded && p2Rounds >= totalRoundsNeeded) {
+        console.log('[DEBUG] All rounds complete, finishing game');
+        // Update game status to finished
+        updateGameState(gameCode, { status: 'finished' });
+        return;
       }
 
       // Determine if it's my turn
       const currentTurn = gameData.currentTurn || 1;
       const myTurn = currentTurn === playerNum;
-      console.log("[DEBUG] Turn check:", { currentTurn, playerNum, myTurn, waitingForOpponent });
-      setIsMyTurn(myTurn);
+      console.log("[DEBUG] Turn check:", { currentTurn, playerNum, myTurn, p1Rounds, p2Rounds, totalRoundsNeeded });
 
-      // If opponent finished their turn, update their stats and show transition
-      if (!myTurn && gameData.currentTurn !== playerNum) {
+      // Update turn state
+      if (myTurn && !isMyTurn) {
+        console.log("[DEBUG] It's now my turn!");
+        setIsMyTurn(true);
         setWaitingForOpponent(false);
-      } else if (myTurn && waitingForOpponent) {
-        // It's now my turn after waiting
-        setWaitingForOpponent(false);
+
+        // Reset game state for new turn
+        setGameOver(false);
+        setGameWon(false);
+        setGameStarted(false);
+        setScore(0);
+        setLives(3);
+        setShotsFired(0);
+        setShotsHit(0);
 
         // Update opponent stats from Firebase
         const opponentStats = playerNum === 1 ? gameData.player2 : gameData.player1;
@@ -1642,16 +1694,15 @@ export default function GamePage() {
             }));
           }
         }
-      }
-
-      // Check if game is finished
-      if (gameData.status === 'finished') {
-        setMultiplayerGameFinished(true);
+      } else if (!myTurn && isMyTurn) {
+        console.log("[DEBUG] No longer my turn, waiting for opponent");
+        setIsMyTurn(false);
+        setWaitingForOpponent(true);
       }
     });
 
     return () => unsubscribe();
-  }, [gameMode, gameCode, playerNum]);
+  }, [gameMode, gameCode, playerNum, isMyTurn]);
 
   // For remote mode: only start game if it's my turn
   useEffect(() => {
@@ -1676,31 +1727,33 @@ export default function GamePage() {
   };
 
   // Multiplayer: Handle turn end (level complete or game over)
-  const handleMultiplayerTurnEnd = useCallback((result) => {
+  const handleMultiplayerTurnEnd = useCallback(async (result) => {
     if (gameMode !== 'local' && gameMode !== 'remote') return;
     
     // Handle remote mode
     if (gameMode === "remote") {
       console.log("[DEBUG] handleMultiplayerTurnEnd REMOTE:", { result, playerNum, gameCode, isMyTurn, waitingForOpponent });
       const { score, level, reason } = result;
-      
+
       console.log('Remote turn end:', { score, level, reason, playerNum });
-      
+
       // Update my score in Firebase
       const myStats = playerNum === 1 ? player1Stats : player2Stats;
       const newRoundScores = [...myStats.roundScores, score];
       const newTotalScore = myStats.totalScore + score;
-      
+
+      // Check if this completes all rounds for this player
+      const myRoundsComplete = newRoundScores.length;
+      const opponentRounds = playerNum === 1 
+        ? (remoteGameData?.player2?.roundScores?.length || 0)
+        : (remoteGameData?.player1?.roundScores?.length || 0);
+
+      console.log('[DEBUG] Round check:', { myRoundsComplete, opponentRounds, totalRounds });
+
       // Update Firebase with my final score
       console.log("[DEBUG] Calling finishPlayerTurn:", { gameCode, playerNum, newTotalScore, newRoundScores });
-      finishPlayerTurn(gameCode, playerNum, newTotalScore, newRoundScores);
-      
-      // Switch turn to opponent
-      console.log("[DEBUG] Calling updateGameState to switch turn");
-      updateGameState(gameCode, {
-        currentTurn: playerNum === 1 ? 2 : 1
-      });
-      
+      await finishPlayerTurn(gameCode, playerNum, newTotalScore, newRoundScores);
+
       // Update local stats
       if (playerNum === 1) {
         setPlayer1Stats(prev => ({
@@ -1715,7 +1768,21 @@ export default function GamePage() {
           roundScores: newRoundScores
         }));
       }
-      
+
+      // Check if game is complete (both players finished all rounds)
+      if (myRoundsComplete >= totalRounds && opponentRounds >= totalRounds) {
+        console.log('[DEBUG] Game complete! Showing final results');
+        await updateGameState(gameCode, { status: 'finished' });
+        setMultiplayerGameFinished(true);
+        return;
+      }
+
+      // Switch turn to opponent
+      console.log("[DEBUG] Calling updateGameState to switch turn");
+      await updateGameState(gameCode, {
+        currentTurn: playerNum === 1 ? 2 : 1
+      });
+
       // Show waiting overlay and reset game state
       console.log("[DEBUG] Setting waitingForOpponent = true");
       setWaitingForOpponent(true);
@@ -1724,7 +1791,7 @@ export default function GamePage() {
       setGameOver(false);
       setGameWon(false);
       setGameStarted(false);
-      
+
       return;
     }
 
@@ -1765,9 +1832,9 @@ export default function GamePage() {
       // Player 1 just finished, switch to Player 2 for same round
       transData = {
         currentPlayer: 1,
-        currentPlayerName: player1Name,
+        currentPlayerName: effectivePlayer1Name,
         nextPlayer: 2,
-        nextPlayerName: player2Name,
+        nextPlayerName: effectivePlayer2Name,
         roundScore: roundScore,
         currentRound: currentRound,
         totalRounds: totalRounds,
@@ -1784,7 +1851,7 @@ export default function GamePage() {
         // All rounds complete - show final results
         transData = {
           currentPlayer: 2,
-          currentPlayerName: player2Name,
+          currentPlayerName: effectivePlayer2Name,
           nextPlayer: null,
           nextPlayerName: null,
           roundScore: roundScore,
@@ -1794,17 +1861,17 @@ export default function GamePage() {
           player2TotalScore: p2Total,
           player1RoundScores: player1Stats.roundScores,
           player2RoundScores: [...player2Stats.roundScores, roundScore],
-          player1Name: player1Name,
-          player2Name: player2Name,
+          player1Name: effectivePlayer1Name,
+          player2Name: effectivePlayer2Name,
           isFinalResult: true
         };
       } else {
         // Move to next round, Player 1 starts
         transData = {
           currentPlayer: 2,
-          currentPlayerName: player2Name,
+          currentPlayerName: effectivePlayer2Name,
           nextPlayer: 1,
-          nextPlayerName: player1Name,
+          nextPlayerName: effectivePlayer1Name,
           roundScore: roundScore,
           currentRound: currentRound,
           totalRounds: totalRounds,
@@ -1818,7 +1885,7 @@ export default function GamePage() {
 
     setTransitionData(transData);
     setShowTurnTransition(true);
-  }, [gameMode, currentPlayerTurn, currentRound, totalRounds, player1Stats, player2Stats, player1Name, player2Name, playerNum, gameCode]);
+  }, [gameMode, currentPlayerTurn, currentRound, totalRounds, player1Stats, player2Stats, effectivePlayer1Name, effectivePlayer2Name, playerNum, gameCode, remoteGameData, totalRounds]);
 
   const confirmTurnTransition = useCallback(() => {
     if (transitionData?.isFinalResult) {
@@ -1887,8 +1954,8 @@ export default function GamePage() {
           transitionData={transitionData}
           player1Stats={player1Stats}
           player2Stats={player2Stats}
-          player1Name={player1Name}
-          player2Name={player2Name}
+          player1Name={effectivePlayer1Name}
+          player2Name={effectivePlayer2Name}
           onContinue={confirmTurnTransition}
           onPlayAgain={handleRematch}
           onMainMenu={() => navigate('/')}
@@ -1997,7 +2064,7 @@ export default function GamePage() {
             }}>
               <div style={{ color: '#ff0', fontSize: '14px' }}>🎮 {gameMode === 'remote' ? 'REMOTE BATTLE' : 'LOCAL BATTLE'}</div>
               <div style={{ color: '#0f0', fontSize: '12px' }}>
-                {currentPlayerTurn === 1 ? player1Name : player2Name}'s Turn
+                {currentPlayerTurn === 1 ? effectivePlayer1Name : effectivePlayer2Name}'s Turn
               </div>
             </div>
           )}
@@ -2018,10 +2085,10 @@ export default function GamePage() {
               fontSize: '12px'
             }}>
               <div style={{ color: currentPlayerTurn === 1 ? '#0f0' : '#888' }}>
-                {player1Name}: {player1Stats.totalScore} pts (L{player1Stats.currentLevel})
+                {effectivePlayer1Name}: {player1Stats.totalScore} pts (L{player1Stats.currentLevel})
               </div>
               <div style={{ color: currentPlayerTurn === 2 ? '#0f0' : '#888' }}>
-                {player2Name}: {player2Stats.totalScore} pts (L{player2Stats.currentLevel})
+                {effectivePlayer2Name}: {player2Stats.totalScore} pts (L{player2Stats.currentLevel})
               </div>
             </div>
           )}
