@@ -532,127 +532,6 @@ function Enemies({ enemies }) {
   const rowColors = ['#ff0066', '#ff6600', '#ffff00', '#00ff66', '#0066ff'];
   
 
-  // Remote multiplayer waiting overlay
-  const RemoteWaitingOverlay = () => {
-    if (gameMode !== 'remote' || !waitingForOpponent) return null;
-    
-    const opponent = playerNum === 1 ? player2Name : player1Name;
-    const opponentData = remoteGameData ? 
-      (playerNum === 1 ? remoteGameData.player2 : remoteGameData.player1) : null;
-    
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,20,0.95)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 300
-      }}>
-        <h2 style={{
-          color: '#f0f',
-          fontFamily: "'Press Start 2P', monospace",
-          fontSize: '24px',
-          textShadow: '0 0 20px #f0f',
-          marginBottom: '30px'
-        }}>
-          ⏳ WAITING FOR OPPONENT
-        </h2>
-        
-        <div style={{
-          color: '#0ff',
-          fontFamily: "'Press Start 2P', monospace",
-          fontSize: '16px',
-          marginBottom: '20px'
-        }}>
-          {opponent} is playing...
-        </div>
-        
-        {opponentData && opponentData.playing && (
-          <div style={{
-            background: '#111',
-            border: '2px solid #f0f',
-            borderRadius: '15px',
-            padding: '20px 40px',
-            marginTop: '20px'
-          }}>
-            <div style={{
-              color: '#aaa',
-              fontFamily: "'Press Start 2P', monospace",
-              fontSize: '12px',
-              marginBottom: '10px'
-            }}>
-              OPPONENT STATUS
-            </div>
-            <div style={{
-              color: '#0f0',
-              fontFamily: "'Press Start 2P', monospace",
-              fontSize: '14px'
-            }}>
-              Score: {opponentData.totalScore || 0}
-            </div>
-          </div>
-        )}
-        
-        {opponentData && opponentData.finished && (
-          <div style={{
-            marginTop: '30px',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              color: '#0f0',
-              fontFamily: "'Press Start 2P', monospace",
-              fontSize: '16px',
-              marginBottom: '20px'
-            }}>
-              ✓ {opponent} finished!
-            </div>
-            <div style={{
-              color: '#ff0',
-              fontFamily: "'Press Start 2P', monospace",
-              fontSize: '20px',
-              marginBottom: '30px'
-            }}>
-              Final Score: {opponentData.totalScore}
-            </div>
-            <button
-              onClick={() => setWaitingForOpponent(false)}
-              style={{
-                padding: '15px 40px',
-                fontSize: '16px',
-                fontFamily: "'Press Start 2P', monospace",
-                background: 'linear-gradient(to bottom, #0f0, #080)',
-                border: 'none',
-                color: '#000',
-                cursor: 'pointer',
-                borderRadius: '10px',
-                boxShadow: '0 0 30px #0f0'
-              }}
-            >
-              ▶ YOUR TURN!
-            </button>
-          </div>
-        )}
-        
-        <div style={{
-          position: 'absolute',
-          top: '20px',
-          right: '20px',
-          color: '#666',
-          fontFamily: "'Press Start 2P', monospace",
-          fontSize: '12px'
-        }}>
-          Room: {gameCode}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <>
       {enemies.map(enemy => (
@@ -1653,6 +1532,64 @@ export default function GamePage() {
   const [diveKillCount, setDiveKillCount] = useState(0);
   const [currentDiveIds, setCurrentDiveIds] = useState([]);
 
+  // Remote multiplayer waiting overlay component
+  const RemoteWaitingOverlay = () => {
+    if (gameMode !== 'remote' || !waitingForOpponent) return null;
+
+    const opponent = playerNum === 1 ? player2Name : player1Name;
+    const opponentData = remoteGameData ?
+      (playerNum === 1 ? remoteGameData.player2 : remoteGameData.player1) : null;
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,20,0.95)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 500
+      }}>
+        <h2 style={{
+          color: '#f0f',
+          fontFamily: "'Press Start 2P', monospace",
+          fontSize: '24px',
+          textShadow: '0 0 20px #f0f',
+          marginBottom: '30px'
+        }}>⏳ WAITING FOR OPPONENT</h2>
+
+        <p style={{
+          color: '#0ff',
+          fontFamily: "'Press Start 2P', monospace",
+          fontSize: '16px',
+          marginBottom: '20px'
+        }}>{opponent || 'Opponent'} is playing...</p>
+
+        {opponentData && (
+          <div style={{
+            color: '#aaa',
+            fontFamily: "'Press Start 2P', monospace",
+            fontSize: '14px',
+            textAlign: 'center'
+          }}>
+            <p>Their Score: {opponentData.totalScore || 0}</p>
+          </div>
+        )}
+
+        <p style={{
+          color: '#888',
+          fontFamily: "'Press Start 2P', monospace",
+          fontSize: '12px',
+          marginTop: '30px'
+        }}>Room Code: {gameCode}</p>
+      </div>
+    );
+  };
+
   // Firebase subscription for remote multiplayer
   useEffect(() => {
     if (gameMode !== 'remote' || !gameCode) return;
@@ -2024,7 +1961,7 @@ export default function GamePage() {
               borderRadius: '5px',
               border: '1px solid #ff0'
             }}>
-              <div style={{ color: '#ff0', fontSize: '14px' }}>🎮 LOCAL BATTLE</div>
+              <div style={{ color: '#ff0', fontSize: '14px' }}>🎮 {gameMode === 'remote' ? 'REMOTE BATTLE' : 'LOCAL BATTLE'}</div>
               <div style={{ color: '#0f0', fontSize: '12px' }}>
                 {currentPlayerTurn === 1 ? player1Name : player2Name}'s Turn
               </div>
