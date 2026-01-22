@@ -1677,6 +1677,8 @@ export default function GamePage() {
     if (gameMode === 'remote') {
       const { score, level, reason } = result;
       
+      console.log('Remote turn end:', { score, level, reason, playerNum });
+      
       // Update my score in Firebase
       const myStats = playerNum === 1 ? player1Stats : player2Stats;
       const newRoundScores = [...myStats.roundScores, score];
@@ -1690,7 +1692,28 @@ export default function GamePage() {
         currentTurn: playerNum === 1 ? 2 : 1
       });
       
+      // Update local stats
+      if (playerNum === 1) {
+        setPlayer1Stats(prev => ({
+          ...prev,
+          totalScore: newTotalScore,
+          roundScores: newRoundScores
+        }));
+      } else {
+        setPlayer2Stats(prev => ({
+          ...prev,
+          totalScore: newTotalScore,
+          roundScores: newRoundScores
+        }));
+      }
+      
+      // Show waiting overlay and reset game state
       setWaitingForOpponent(true);
+      setIsMyTurn(false);
+      setGameOver(false);
+      setGameWon(false);
+      setGameStarted(false);
+      
       return;
     }
 
