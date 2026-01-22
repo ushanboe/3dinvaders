@@ -1653,6 +1653,77 @@ export default function GamePage() {
   const [diveKillCount, setDiveKillCount] = useState(0);
   const [currentDiveIds, setCurrentDiveIds] = useState([]);
 
+  // Firebase subscription for remote multiplayer
+  useEffect(() => {
+    if (gameMode !== 'remote' || !gameCode) return;
+
+    console.log('Setting up Firebase subscription for game:', gameCode);
+
+    const unsubscribe = subscribeToGame(gameCode, (gameData) => {
+      console.log('Firebase game data update:', gameData);
+      setRemoteGameData(gameData);
+
+      if (!gameData) return;
+
+      // Check if opponent has joined
+      const opponent = playerNum === 1 ? gameData.player2 : gameData.player1;
+      if (opponent && opponent.name) {
+        setOpponentStatus('joined');
+      }
+
+      // Determine if it's my turn
+      const currentTurn = gameData.currentTurn || 1;
+      const myTurn = currentTurn === playerNum;
+      setIsMyTurn(myTurn);
+
+      // If opponent finished their turn, update their stats and show transition
+      if (!myTurn && gameData.currentTurn !== playerNum) {
+        setWaitingForOpponent(false);
+      } else if (myTurn && waitingForOpponent) {
+        // It's now my turn after waiting
+        setWaitingForOpponent(false);
+
+        // Update opponent stats from Firebase
+        const opponentStats = playerNum === 1 ? gameData.player2 : gameData.player1;
+        if (opponentStats) {
+          if (playerNum === 1) {
+            setPlayer2Stats(prev => ({
+              ...prev,
+              totalScore: opponentStats.totalScore || 0,
+              roundScores: opponentStats.roundScores || []
+            }));
+          } else {
+            setPlayer1Stats(prev => ({
+              ...prev,
+              totalScore: opponentStats.totalScore || 0,
+              roundScores: opponentStats.roundScores || []
+            }));
+          }
+        }
+      }
+
+      // Check if game is finished
+      if (gameData.status === 'finished') {
+        setMultiplayerGameFinished(true);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [gameMode, gameCode, playerNum]);
+
+  // For remote mode: only start game if it's my turn
+  useEffect(() => {
+    if (gameMode !== 'remote') return;
+
+    // Player 1 starts first, Player 2 waits
+    if (playerNum === 2 && !remoteGameData?.currentTurn) {
+      setWaitingForOpponent(true);
+    } else if (playerNum === 1) {
+      setIsMyTurn(true);
+    }
+  }, [gameMode, playerNum, remoteGameData]);
+
+
   const restart = () => {
     if (gameMode === 'local') {
       navigate('/');
