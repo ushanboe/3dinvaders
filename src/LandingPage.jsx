@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './LandingPage.css';
+import RemoteMultiplayerModal from './RemoteMultiplayerModal';
 
 // Typewriter component for terminal effect
 const Typewriter = ({ text, speed = 30, delay = 0, onComplete }) => {
@@ -213,33 +214,41 @@ const ModeSelectionModal = ({ onSelectMode, onClose, highScore }) => {
             </div>
           </button>
           
-          {/* Remote 2P Mode (Coming Soon) */}
+          {/* Remote 2P Mode */}
           <button
-            disabled
+            onClick={() => onSelectMode('remote', null, null)}
             style={{
-              background: 'linear-gradient(135deg, #1a1a1a 0%, #333333 100%)',
-              border: '3px solid #666',
+              background: 'linear-gradient(135deg, #330033 0%, #660066 100%)',
+              border: '3px solid #f0f',
               borderRadius: '20px',
               padding: '30px',
-              cursor: 'not-allowed',
+              cursor: 'pointer',
               width: '280px',
-              opacity: 0.6
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 30px #f0f';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.transform = 'scale(1)';
             }}
           >
             <div style={{ fontSize: '48px', marginBottom: '15px' }}>🌐</div>
             <div style={{
-              color: '#666',
+              color: '#f0f',
               fontFamily: "'Press Start 2P', monospace",
               fontSize: '20px',
               marginBottom: '10px'
             }}>REMOTE BATTLE</div>
             <div style={{
-              color: '#ff0',
+              color: '#aaa',
               fontFamily: "'Press Start 2P', monospace",
               fontSize: '10px',
               lineHeight: '1.6'
             }}>
-              🔒 PREMIUM<br/>COMING SOON!
+              2 players online<br/>Play with friends anywhere!
             </div>
           </button>
         </div>
@@ -496,6 +505,7 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const [showContent, setShowContent] = useState(false);
   const [showModeSelection, setShowModeSelection] = useState(false);
+  const [showRemoteModal, setShowRemoteModal] = useState(false);
   const [highScore] = useState(() => parseInt(localStorage.getItem('highScore') || '0'));
 
   useEffect(() => {
@@ -508,7 +518,16 @@ const LandingPage = () => {
       navigate('/game?mode=solo');
     } else if (mode === 'local') {
       navigate(`/game?mode=local&p1=${encodeURIComponent(p1Name)}&p2=${encodeURIComponent(p2Name)}&rounds=${rounds}`);
+    } else if (mode === 'remote') {
+      setShowModeSelection(false);
+      setShowRemoteModal(true);
     }
+  };
+  
+  const handleRemoteStart = (remoteConfig) => {
+    // Navigate to game with remote mode parameters
+    const { gameCode, playerNum, playerName, opponentName, totalRounds } = remoteConfig;
+    navigate(`/game?mode=remote&code=${gameCode}&pnum=${playerNum}&p1=${encodeURIComponent(playerNum === 1 ? playerName : opponentName)}&p2=${encodeURIComponent(playerNum === 2 ? playerName : opponentName)}&rounds=${totalRounds}`);
   };
 
   const terminalLines = [
@@ -543,6 +562,14 @@ const LandingPage = () => {
           onSelectMode={handleSelectMode}
           onClose={() => setShowModeSelection(false)}
           highScore={highScore}
+        />
+      )}
+      
+      {/* Remote Multiplayer Modal */}
+      {showRemoteModal && (
+        <RemoteMultiplayerModal
+          onStartGame={handleRemoteStart}
+          onClose={() => setShowRemoteModal(false)}
         />
       )}
       
