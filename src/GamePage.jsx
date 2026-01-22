@@ -1851,7 +1851,7 @@ export default function GamePage() {
       )}
 
       {/* Victory overlay */}
-      {gameWon && (
+      {gameWon && gameMode !== 'local' && (
         <div style={{
           position: 'absolute',
           top: 0,
@@ -1903,7 +1903,7 @@ export default function GamePage() {
       )}
 
       {/* Game Over overlay */}
-      {gameOver && (
+      {gameOver && gameMode !== 'local' && (
         <div style={{
           position: 'absolute',
           top: 0,
