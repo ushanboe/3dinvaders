@@ -1649,6 +1649,7 @@ export default function GamePage() {
 
       // Check if game is finished (all rounds complete)
       if (gameData.status === 'finished') {
+        console.log('[DEBUG] Game status is FINISHED - showing final results for player', playerNum);
         // Update final stats from Firebase
         setPlayer1Stats(prev => ({
           ...prev,
@@ -1661,6 +1662,7 @@ export default function GamePage() {
           roundScores: gameData.player2?.roundScores || []
         }));
         setMultiplayerGameFinished(true);
+        setWaitingForOpponent(false);
         return;
       }
 
