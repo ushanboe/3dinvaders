@@ -1672,9 +1672,11 @@ export default function GamePage() {
       const totalRoundsNeeded = gameData.totalRounds || 3;
 
       if (p1Rounds >= totalRoundsNeeded && p2Rounds >= totalRoundsNeeded) {
-        console.log('[DEBUG] All rounds complete, finishing game');
-        // Update game status to finished
+        console.log('[DEBUG] All rounds complete, finishing game for player', playerNum);
+        // Update game status to finished and show final results
         updateGameState(gameCode, { status: 'finished' });
+        setMultiplayerGameFinished(true);
+        setWaitingForOpponent(false);
         return;
       }
 
