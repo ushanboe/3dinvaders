@@ -89,14 +89,16 @@ const RemoteMultiplayerModal = ({ onStartGame, onClose }) => {
       setPlayerNum(2);
       
       // Start game immediately for player 2
-      onStartGame({
+      const startConfig = {
         mode: 'remote',
         gameCode: code,
         playerNum: 2,
         playerName: playerName || 'Player 2',
         opponentName: result.player1Name,
         totalRounds: result.totalRounds
-      });
+      };
+      console.log("[DEBUG] handleJoinGame calling onStartGame with:", startConfig);
+      onStartGame(startConfig);
     } catch (err) {
       setError(err.message || 'Failed to join game');
     }

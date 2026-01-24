@@ -527,7 +527,10 @@ const LandingPage = () => {
   const handleRemoteStart = (remoteConfig) => {
     // Navigate to game with remote mode parameters
     const { gameCode, playerNum, playerName, opponentName, totalRounds } = remoteConfig;
-    navigate(`/game?mode=remote&code=${gameCode}&pnum=${playerNum}&p1=${encodeURIComponent(playerNum === 1 ? playerName : opponentName)}&p2=${encodeURIComponent(playerNum === 2 ? playerName : opponentName)}&rounds=${totalRounds}`);
+    console.log("[DEBUG] handleRemoteStart called with:", { gameCode, playerNum, playerName, opponentName, totalRounds });
+    const url = `/game?mode=remote&code=${gameCode}&pnum=${playerNum}&p1=${encodeURIComponent(playerNum === 1 ? playerName : opponentName)}&p2=${encodeURIComponent(playerNum === 2 ? playerName : opponentName)}&rounds=${totalRounds}`;
+    console.log("[DEBUG] Navigating to URL:", url);
+    navigate(url);
   };
 
   const terminalLines = [
