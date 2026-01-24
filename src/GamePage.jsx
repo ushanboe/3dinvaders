@@ -1997,6 +1997,14 @@ export default function GamePage() {
         />
       )}
       {/* Remote Multiplayer Final Results */}
+      {
+        // Debug: Log state values for final results screen condition
+        console.log('[DEBUG] Final results screen condition check:', {
+          multiplayerGameFinished,
+          gameMode,
+          shouldShow: multiplayerGameFinished && gameMode === 'remote'
+        })
+      }
       {multiplayerGameFinished && gameMode === 'remote' && (
         <div style={{
           position: 'absolute',
@@ -2122,6 +2130,16 @@ export default function GamePage() {
       {gameMode === 'remote' && waitingForOpponent && <RemoteWaitingOverlay />}
 
       {/* Start Screen */}
+      {
+        // Debug: Log state values for start screen condition
+        console.log('[DEBUG] Start screen condition check:', {
+          gameStarted,
+          gameMode,
+          waitingForOpponent,
+          multiplayerGameFinished,
+          shouldShow: !gameStarted && !(gameMode === 'remote' && waitingForOpponent) && !multiplayerGameFinished
+        })
+      }
       {!gameStarted && !(gameMode === 'remote' && waitingForOpponent) && !multiplayerGameFinished && (
         <div style={{
           position: 'absolute',
