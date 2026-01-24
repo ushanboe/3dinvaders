@@ -2122,7 +2122,7 @@ export default function GamePage() {
       {gameMode === 'remote' && waitingForOpponent && <RemoteWaitingOverlay />}
 
       {/* Start Screen */}
-      {!gameStarted && !(gameMode === 'remote' && waitingForOpponent) && (
+      {!gameStarted && !(gameMode === 'remote' && waitingForOpponent) && !multiplayerGameFinished && (
         <div style={{
           position: 'absolute',
           top: 0,
