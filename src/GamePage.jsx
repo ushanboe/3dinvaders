@@ -1992,6 +1992,127 @@ export default function GamePage() {
           onMainMenu={() => navigate('/')}
         />
       )}
+      {/* Remote Multiplayer Final Results */}
+      {multiplayerGameFinished && gameMode === 'remote' && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0,0,20,0.98)',
+          zIndex: 300,
+          overflow: 'auto',
+          padding: '20px'
+        }}>
+          <h1 style={{ 
+            color: '#ff0', 
+            fontFamily: "'Press Start 2P', monospace", 
+            fontSize: '36px', 
+            textShadow: '0 0 20px #ff0', 
+            margin: '10px 0',
+            textAlign: 'center'
+          }}>🏆 GAME COMPLETE! 🏆</h1>
+          
+          {/* Winner announcement */}
+          <div style={{
+            fontSize: '28px',
+            fontFamily: "'Press Start 2P', monospace",
+            color: player1Stats.totalScore > player2Stats.totalScore ? '#0f0' : 
+                   player2Stats.totalScore > player1Stats.totalScore ? '#0f0' : '#ff0',
+            textShadow: '0 0 15px currentColor',
+            margin: '20px 0',
+            textAlign: 'center'
+          }}>
+            {player1Stats.totalScore > player2Stats.totalScore 
+              ? `🎉 ${effectivePlayer1Name} WINS! 🎉`
+              : player2Stats.totalScore > player1Stats.totalScore 
+                ? `🎉 ${effectivePlayer2Name} WINS! 🎉`
+                : "🤝 IT'S A TIE! 🤝"}
+          </div>
+
+          {/* Score comparison */}
+          <div style={{
+            display: 'flex',
+            gap: '40px',
+            margin: '20px 0',
+            flexWrap: 'wrap',
+            justifyContent: 'center'
+          }}>
+            {/* Player 1 */}
+            <div style={{
+              background: player1Stats.totalScore >= player2Stats.totalScore ? 'rgba(0,255,0,0.2)' : 'rgba(255,255,255,0.1)',
+              border: player1Stats.totalScore >= player2Stats.totalScore ? '2px solid #0f0' : '2px solid #444',
+              borderRadius: '15px',
+              padding: '20px',
+              minWidth: '200px',
+              textAlign: 'center'
+            }}>
+              <div style={{ color: '#0ff', fontSize: '18px', fontFamily: "'Press Start 2P', monospace", marginBottom: '10px' }}>
+                {effectivePlayer1Name}
+              </div>
+              <div style={{ color: '#0f0', fontSize: '32px', fontFamily: "'Press Start 2P', monospace" }}>
+                {player1Stats.totalScore}
+              </div>
+              <div style={{ color: '#888', fontSize: '12px', marginTop: '10px' }}>
+                Rounds: {player1Stats.roundScores?.map((s, i) => s).join(' + ') || '0'}
+              </div>
+            </div>
+
+            {/* VS */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              color: '#ff0', 
+              fontSize: '24px',
+              fontFamily: "'Press Start 2P', monospace"
+            }}>VS</div>
+
+            {/* Player 2 */}
+            <div style={{
+              background: player2Stats.totalScore >= player1Stats.totalScore ? 'rgba(0,255,0,0.2)' : 'rgba(255,255,255,0.1)',
+              border: player2Stats.totalScore >= player1Stats.totalScore ? '2px solid #0f0' : '2px solid #444',
+              borderRadius: '15px',
+              padding: '20px',
+              minWidth: '200px',
+              textAlign: 'center'
+            }}>
+              <div style={{ color: '#0ff', fontSize: '18px', fontFamily: "'Press Start 2P', monospace", marginBottom: '10px' }}>
+                {effectivePlayer2Name}
+              </div>
+              <div style={{ color: '#0f0', fontSize: '32px', fontFamily: "'Press Start 2P', monospace" }}>
+                {player2Stats.totalScore}
+              </div>
+              <div style={{ color: '#888', fontSize: '12px', marginTop: '10px' }}>
+                Rounds: {player2Stats.roundScores?.map((s, i) => s).join(' + ') || '0'}
+              </div>
+            </div>
+          </div>
+
+          {/* Play Again button */}
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              marginTop: '30px',
+              padding: '15px 40px',
+              fontSize: '18px',
+              fontFamily: "'Press Start 2P', monospace",
+              background: 'linear-gradient(to bottom, #44ff44, #00cc00)',
+              border: 'none',
+              color: '#000',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              borderRadius: '15px',
+              boxShadow: '0 0 20px #0f0'
+            }}
+          >🎮 PLAY AGAIN</button>
+        </div>
+      )}
+
 
       {/* Remote Multiplayer Waiting Overlay */}
       {gameMode === 'remote' && waitingForOpponent && <RemoteWaitingOverlay />}
@@ -2095,7 +2216,7 @@ export default function GamePage() {
             }}>
               <div style={{ color: '#ff0', fontSize: '14px' }}>🎮 {gameMode === 'remote' ? 'REMOTE BATTLE' : 'LOCAL BATTLE'}</div>
               <div style={{ color: '#0f0', fontSize: '12px' }}>
-                {currentPlayerTurn === 1 ? effectivePlayer1Name : effectivePlayer2Name}'s Turn
+                {gameMode === 'remote' ? (isMyTurn ? (playerNum === 1 ? effectivePlayer1Name : effectivePlayer2Name) : (playerNum === 1 ? effectivePlayer2Name : effectivePlayer1Name)) : (currentPlayerTurn === 1 ? effectivePlayer1Name : effectivePlayer2Name)}'s Turn
               </div>
             </div>
           )}
