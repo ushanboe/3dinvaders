@@ -1697,6 +1697,10 @@ export default function GamePage() {
         setLives(3);
         setShotsFired(0);
         setShotsHit(0);
+        // Reset level and trigger game reinitialization for fresh enemies
+        console.log("[DEBUG] Resetting level to 1 and triggering game reinitialization");
+        setLevel(1);
+        setCurrentPlayerTurn(prev => prev === 1 ? 2 : 1); // Toggle to trigger useEffect in Game component
 
         // Update opponent stats from Firebase
         const opponentStats = playerNum === 1 ? gameData.player2 : gameData.player1;
